@@ -29,7 +29,6 @@ import { ContextRing } from '@/components/ContextRing';
 import { Button, IconButton } from '@/components/Button';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import { MessageBubble } from '@/components/MessageBubble';
-import { BudgetPlanModal } from '@/components/ledger/BudgetPlanModal';
 import {
   clearAllConversations,
   ensureConversation,
@@ -44,8 +43,6 @@ import {
 } from '@/db/messages';
 import {
   getMonthlyBudgetPlan,
-  saveMonthlyBudgetPlan,
-  type CategoryBudget,
   type MonthlyBudgetPlan,
 } from '@/db/budgets';
 import {
@@ -89,12 +86,16 @@ const COACH_SUGGESTIONS: { icon: IconName; label: string; prompt: string }[] = [
   { icon: 'pie-chart-outline', label: 'Where did I spend most?', prompt: 'Based on my ledger summary, where did I spend the most this month?' },
   { icon: 'wallet-outline', label: 'Recommend a budget', prompt: 'Recommend a total monthly budget and category limits based on my recorded income and expense patterns. Clearly mark these as suggestions, not saved budgets.' },
   { icon: 'leaf-outline', label: 'How can I save?', prompt: 'Suggest a few realistic ways I could save based on my spending summary.' },
+  { icon: 'speedometer-outline', label: 'Am I within my budget?', prompt: 'Compare my recorded expenses this month with my saved monthly budget limit. If no limit is recorded, tell me instead of guessing.' },
+  { icon: 'calendar-outline', label: 'How much did I spend this week?', prompt: 'Based on the last 7 days in my ledger summary, summarize my recorded income and expenses.' },
 ];
 
 const COACH_SUGGESTIONS_TL: { icon: IconName; label: string; prompt: string }[] = [
   { icon: 'pie-chart-outline', label: 'Saan ako pinakamaraming gumastos?', prompt: 'Batay sa buod ng talaan ko, saan ako pinakamaraming gumastos ngayong buwan?' },
   { icon: 'wallet-outline', label: 'Magrekomenda ng badyet', prompt: 'Magrekomenda ng kabuuang badyet para sa buwan at limitasyon kada kategorya batay sa naitala kong kita at gastos. Linawin na mungkahi lang ito at hindi pa naka-save.' },
   { icon: 'leaf-outline', label: 'Paano ako makakaipon?', prompt: 'Magmungkahi ng ilang makatotohanang paraan para makaipon batay sa buod ng mga gastos ko.' },
+  { icon: 'speedometer-outline', label: 'Pasok ba ako sa badyet ko?', prompt: 'Ihambing ang naitala kong gastos ngayong buwan sa naka-save kong buwanang limitasyon. Kung walang naka-save na limitasyon, sabihin iyon sa halip na manghula.' },
+  { icon: 'calendar-outline', label: 'Magkano ang nagastos ko nitong linggo?', prompt: 'Batay sa buod ng huling 7 araw, ibuod ang naitala kong kita at gastos.' },
 ];
 
 function getCoachContext(
@@ -194,7 +195,6 @@ export function ChatExperience({
   const [coachContextError, setCoachContextError] = useState(false);
   const [coachTransactions, setCoachTransactions] = useState<LedgerTransaction[]>([]);
   const [budgetPlan, setBudgetPlan] = useState<MonthlyBudgetPlan | null>(null);
-  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   // Real token usage reported by the provider after its last reply.
   const [reported, setReported] = useState<{ provider: string; usage: ContextUsage } | null>(null);
   const voice = useVoiceRecorder();
@@ -248,15 +248,6 @@ export function ChatExperience({
       return () => { active = false; };
     }, [coachMode, budgetMonth])
   );
-
-  const saveBudgetPlan = useCallback(async (
-    totalAmount: number | null,
-    categories: CategoryBudget[]
-  ) => {
-    const updatedPlan = await saveMonthlyBudgetPlan(budgetMonth, totalAmount, categories);
-    setBudgetPlan(updatedPlan);
-    setCoachContext(getCoachContext(coachTransactions, updatedPlan));
-  }, [budgetMonth, coachTransactions]);
 
   // ── Load messages on focus (also after "Clear chat" in settings) and fail
   // any 'pending' rows left over from a killed run ──
@@ -660,35 +651,6 @@ export function ChatExperience({
           />
         </View>
       )}
-      {coachMode && budgetPlan && (
-        <View style={[styles.budgetCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={styles.budgetCopy}>
-            <Text style={[styles.budgetTitle, { color: theme.text }]}>This month’s budget</Text>
-            {budgetPlan.totalAmount !== null && (
-              <Text numberOfLines={1} style={[styles.budgetAmount, { color: theme.tint }]}>
-                {formatMoney(budgetPlan.totalAmount)}
-              </Text>
-            )}
-            <Text numberOfLines={1} style={[styles.budgetSubtitle, { color: theme.textSecondary }]}>
-              {budgetPlan.categories.length === 0
-                ? 'No category limits set'
-                : `${budgetPlan.categories.length} category ${budgetPlan.categories.length === 1 ? 'limit' : 'limits'} saved`}
-            </Text>
-          </View>
-          <SmoothPressable
-            accessibilityRole="button"
-            accessibilityLabel={budgetPlan.totalAmount === null ? 'Set budget' : 'Edit budget'}
-            disabled={coachContext === null || generating}
-            onPress={() => setBudgetModalVisible(true)}
-            style={[styles.budgetButton, { backgroundColor: theme.buttonSecondary }]}
-          >
-            <Ionicons name="create-outline" size={17} color={theme.tint} />
-            <Text style={[styles.budgetButtonText, { color: theme.tint }]}>
-              {budgetPlan.totalAmount === null ? 'Set budget' : 'Edit'}
-            </Text>
-          </SmoothPressable>
-        </View>
-      )}
       {messages.length === 0 ? (
         <View style={styles.empty}>
           <View style={[styles.emptyAvatar, { backgroundColor: theme.buttonPrimary }]}>
@@ -761,14 +723,6 @@ export function ChatExperience({
         onStopRecording={finishRecording}
         onCancelRecording={cancelRecording}
       />
-      {coachMode && budgetPlan && budgetModalVisible && (
-        <BudgetPlanModal
-          visible
-          plan={budgetPlan}
-          onClose={() => setBudgetModalVisible(false)}
-          onSave={saveBudgetPlan}
-        />
-      )}
     </KeyboardAvoidingView>
   );
 }
@@ -838,13 +792,6 @@ const styles = StyleSheet.create({
   },
   chipDisabled: { opacity: 0.5 },
   list: { paddingVertical: 12 },
-  budgetCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 12, marginTop: 10, padding: 11, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth },
-  budgetCopy: { flex: 1, gap: 2 },
-  budgetTitle: { fontSize: 12, fontWeight: '700' },
-  budgetAmount: { fontSize: 15, fontWeight: '800' },
-  budgetSubtitle: { fontSize: 10.5 },
-  budgetButton: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, borderRadius: 11 },
-  budgetButtonText: { fontSize: 11.5, fontWeight: '700' },
   coachNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth },
   localSetupCard: { marginHorizontal: 12, marginTop: 8, padding: 12, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, gap: 10 },
   localSetupCopy: { fontSize: 12.5, lineHeight: 17 },

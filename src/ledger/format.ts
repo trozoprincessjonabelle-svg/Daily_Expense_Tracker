@@ -84,6 +84,7 @@ export function balanceThroughDate(
       return balance - transaction.amount;
     }
     if (isEmergencyFundMovement(transaction)) return balance;
+    if (transaction.type === 'savings') return balance - transaction.amount;
     return balance + (transaction.type === 'income' ? transaction.amount : -transaction.amount);
   }, 0);
 }

@@ -36,24 +36,29 @@ function FeatureModal({
   visible,
   title,
   icon,
+  iconTint,
   onClose,
   children,
 }: {
   visible: boolean;
   title: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
+  iconTint?: string;
   onClose: () => void;
   children: ReactNode;
 }) {
   const theme = useTheme();
+  const accent = iconTint ?? theme.tint;
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={[styles.sheet, { backgroundColor: theme.background }]}>
           <View style={[styles.handle, { backgroundColor: theme.border }]} />
           <View style={styles.header}>
-            <View style={[styles.headerIcon, { backgroundColor: `${theme.buttonPrimary}18` }]}>
-              <Ionicons name={icon} size={20} color={theme.tint} />
+            <View style={[styles.headerIcon, {
+              backgroundColor: iconTint ? `${iconTint}16` : `${theme.buttonPrimary}18`,
+            }]}>
+              <Ionicons name={icon} size={20} color={accent} />
             </View>
             <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
             <SmoothPressable accessibilityLabel="Close" onPress={onClose} style={[styles.close, { backgroundColor: theme.card }]}>
@@ -240,13 +245,11 @@ export function UpcomingEventModal({
   onClose,
   onSave,
   event,
-  availableBalance,
 }: {
   visible: boolean;
   onClose: () => void;
   onSave: (event: UpcomingEventInput) => Promise<void>;
   event?: UpcomingEvent | null;
-  availableBalance?: number;
 }) {
   const theme = useTheme();
   const [title, setTitle] = useState(event?.title ?? '');
@@ -258,9 +261,6 @@ export function UpcomingEventModal({
   const trimmedTitle = title.trim();
   const validDate = isValidUpcomingDate(date);
   const valid = trimmedTitle.length > 0 && validDate && Number.isFinite(parsedAmount) && parsedAmount >= 0;
-  const shortfall = availableBalance !== undefined && parsedAmount > availableBalance
-    ? parsedAmount - availableBalance
-    : 0;
 
   const submit = async () => {
     if (!valid) return;
@@ -303,8 +303,14 @@ export function UpcomingEventModal({
   };
 
   return (
-    <FeatureModal visible={visible} title={event ? 'Edit upcoming event' : 'Add upcoming event'} icon="calendar-outline" onClose={onClose}>
-      <Field label="Event name" value={title} onChangeText={setTitle} placeholder="e.g. Birthday" />
+    <FeatureModal
+      visible={visible}
+      title={event ? 'Edit upcoming event' : 'Add upcoming cost'}
+      icon="calendar-outline"
+      iconTint={theme.warning}
+      onClose={onClose}
+    >
+      <Field label="Cost name" value={title} onChangeText={setTitle} placeholder="e.g. Birthday" />
       <View style={styles.field}>
         <Text style={[styles.label, { color: theme.text }]}>Date</Text>
         <SmoothPressable
@@ -314,7 +320,7 @@ export function UpcomingEventModal({
           style={[styles.input, styles.datePickerInput, { backgroundColor: theme.card, borderColor: theme.border }]}
         >
           <Text style={{ color: theme.text }}>{formatDate(date)}</Text>
-          <Ionicons name="calendar-outline" size={18} color={theme.tint} />
+          <Ionicons name="calendar-outline" size={18} color={theme.warning} />
         </SmoothPressable>
         {showIosDatePicker && (
           <DateTimePicker
@@ -328,17 +334,15 @@ export function UpcomingEventModal({
         )}
       </View>
       <Field label="Estimated cost (PHP)" value={amount} onChangeText={setAmount} placeholder="Optional" keyboardType="decimal-pad" />
+      <Text style={[styles.helperText, { color: theme.textSecondary }]}>
+        You can save the estimate even if it is higher than your current wallet balance.
+      </Text>
       {!validDate && date.length > 0 && (
         <Text style={[styles.validation, { color: theme.danger }]}>Enter a valid date today or later.</Text>
       )}
-      {shortfall > 0 && (
-        <Text style={[styles.validation, { color: theme.danger }]}>
-          {`You need ${formatMoney(shortfall)} more to afford this event.`}
-        </Text>
-      )}
       <View style={styles.actions}>
         <Button label="Cancel" variant="secondary" onPress={onClose} style={styles.action} />
-        <Button label={event ? 'Save changes' : 'Add event'} icon={event ? 'checkmark' : 'add'} loading={saving} disabled={!valid} onPress={() => void submit()} style={styles.action} />
+        <Button label={event ? 'Save changes' : 'Add cost'} icon={event ? 'checkmark' : 'add'} loading={saving} disabled={!valid} onPress={() => void submit()} style={styles.action} />
       </View>
     </FeatureModal>
   );
@@ -359,6 +363,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700' },
   input: { minHeight: 48, borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, paddingHorizontal: 13, fontSize: 15 },
   datePickerInput: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  helperText: { fontSize: 12, lineHeight: 17 },
   validation: { fontSize: 12 },
   actions: { flexDirection: 'row', gap: 9, marginTop: 4 },
   action: { flex: 1, paddingHorizontal: 10 },

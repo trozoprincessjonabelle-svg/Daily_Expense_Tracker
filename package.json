@@ -45,7 +45,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "start": "expo start --port 8081",
+    "start": "expo start --dev-client --port 8081",
     "android": "expo run:android --port 8081",
     "web": "expo start --web --port 8081",
     "lint": "expo lint"

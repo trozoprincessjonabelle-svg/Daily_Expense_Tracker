@@ -1,7 +1,7 @@
 import { requireOptionalNativeModule } from 'expo';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import { estimateMemory, type Backend } from 'react-native-litert-lm';
+import type { Backend } from 'react-native-litert-lm';
 import { LOCAL_MODEL_FILENAME, LOCAL_MODEL_SIZE_BYTES } from './modelInfo';
 
 export interface DeviceResources {
@@ -64,6 +64,24 @@ async function evaluateResources(device: DeviceResources): Promise<LocalDeviceRe
     FileSystem.getInfoAsync(path),
     FileSystem.getInfoAsync(`${path}.download`),
   ]);
+  const requiredStorageBytes = model.exists
+    ? 0
+    : Math.max(0, LOCAL_MODEL_SIZE_BYTES - (partial.exists ? partial.size || 0 : 0)) + 32 * 1024 * 1024;
+  const compatible = device.arm64 && device.androidApi >= 26;
+  const storageReady = device.freeStorageBytes >= requiredStorageBytes;
+  if (!compatible) {
+    return {
+      ...device,
+      compatible: false,
+      memoryReady: false,
+      storageReady,
+      requiredStorageBytes,
+      requiredRamBytes: 0,
+      recommendedBackend: 'cpu',
+    };
+  }
+
+  const { estimateMemory } = await import('react-native-litert-lm');
   const fileSize = model.exists ? model.size || LOCAL_MODEL_SIZE_BYTES : LOCAL_MODEL_SIZE_BYTES;
   const estimate = (backend: Backend) => estimateMemory({
     modelFileSizeBytes: fileSize,
@@ -75,14 +93,11 @@ async function evaluateResources(device: DeviceResources): Promise<LocalDeviceRe
   const recommendedBackend: Backend = acceleratorFits && device.npuDetected
     ? 'npu'
     : acceleratorFits && device.gpuAvailable ? 'gpu' : 'cpu';
-  const requiredStorageBytes = model.exists
-    ? 0
-    : Math.max(0, LOCAL_MODEL_SIZE_BYTES - (partial.exists ? partial.size || 0 : 0)) + 32 * 1024 * 1024;
   return {
     ...device,
-    compatible: device.arm64 && device.androidApi >= 26,
+    compatible,
     memoryReady: cpu.verdict !== 'critical',
-    storageReady: device.freeStorageBytes >= requiredStorageBytes,
+    storageReady,
     requiredStorageBytes,
     requiredRamBytes: cpu.totalEstimatedBytes,
     recommendedBackend,

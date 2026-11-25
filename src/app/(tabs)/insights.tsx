@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { LocalizedText as Text } from '@/components/LocalizedText';
 import { SmoothPressable } from '@/components/SmoothPressable';
-import { emergencyFundActivity, isEmergencyFundMovement } from '@/db/ledger';
+import { isEmergencyFundMovement } from '@/db/ledger';
 import { useCurrentDate } from '@/hooks/useCurrentDate';
 import { useLedgerTransactions } from '@/hooks/useLedgerTransactions';
 import { availableBalanceThroughDate, formatMoney, sumByType } from '@/ledger/format';
@@ -56,14 +56,6 @@ export function InsightsScreen() {
       ? expenses
       : yearExpenses;
   const netCashflow = selectedIncome - selectedExpenses;
-  const monthFundActivity = emergencyFundActivity(month);
-  const weekFundActivity = emergencyFundActivity(weekTransactions);
-  const yearFundActivity = emergencyFundActivity(yearTransactions);
-  const fundActivity = cashflowPeriod === 'week'
-    ? weekFundActivity
-    : cashflowPeriod === 'month'
-      ? monthFundActivity
-      : yearFundActivity;
   const categories = (() => {
     const sums = new Map<string, number>();
     for (const transaction of month) {
@@ -81,10 +73,7 @@ export function InsightsScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: theme.text }]}>Insights</Text>
-          <Text style={{ color: theme.textSecondary, fontSize: 12.5, marginTop: 2 }}>See how your money is going</Text>
-        </View>
-        <View style={[styles.headerIcon, { backgroundColor: `${theme.buttonPrimary}14` }]}>
-          <Ionicons name="analytics-outline" size={20} color={theme.tint} />
+          <Text style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 3 }}>See how your money is going</Text>
         </View>
       </View>
       {loading ? <ActivityIndicator color={theme.tint} style={styles.loader} /> : (
@@ -92,7 +81,7 @@ export function InsightsScreen() {
           <View style={styles.moneyFlowHeader}>
             <View>
               <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.sectionTitle, { color: theme.text }]}>Money Flow</Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 3 }}>
                 Choose a time period to review.
               </Text>
             </View>
@@ -107,7 +96,7 @@ export function InsightsScreen() {
                     onPress={() => setCashflowPeriod(period)}
                     style={[styles.cashflowPeriodOption, selected && { backgroundColor: theme.buttonPrimary }]}
                   >
-                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: selected ? '#FFFFFF' : theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: selected ? '#FFFFFF' : theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
                       {period === 'week' ? '7 days' : period === 'month' ? 'This month' : 'This year'}
                     </Text>
                   </SmoothPressable>
@@ -117,11 +106,8 @@ export function InsightsScreen() {
           </View>
           <View style={styles.moneyFlowSection}>
             <View style={[styles.moneyFlowHero, { backgroundColor: theme.buttonPrimary }]}>
-              <Text style={[styles.safeLabel, { color: '#FFEDD5' }]}>Safe to spend today</Text>
+              <Text style={[styles.safeLabel, { color: '#D1FAE5' }]}>Safe to spend today</Text>
               <Text numberOfLines={1} adjustsFontSizeToFit style={styles.balance}>{formatMoney(availableToSpend)}</Text>
-              <Text style={styles.balanceNote}>
-                Wallet balance only · emergency savings excluded
-              </Text>
             </View>
 
             <View style={[styles.flowSummaryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -164,7 +150,7 @@ export function InsightsScreen() {
           <View style={styles.sectionHeader}>
             <View>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Spending habits</Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>Simple totals from your entries</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 3 }}>Simple totals from your entries</Text>
             </View>
           </View>
           <View style={[styles.trendsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -187,32 +173,8 @@ export function InsightsScreen() {
 
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Emergency savings</Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>Money added or used for the selected period</Text>
-            </View>
-          </View>
-          <View style={[styles.cashflow, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={styles.monthlyCashflow}>
-              <Metric
-                label="Savings added"
-                amount={fundActivity.added}
-                color={theme.success}
-                icon="arrow-down-outline"
-              />
-              <View style={[styles.metricDivider, { backgroundColor: theme.border }]} />
-              <Metric
-                label="Emergency fund used"
-                amount={fundActivity.used}
-                color={theme.danger}
-                icon="arrow-up-outline"
-              />
-            </View>
-          </View>
-
-          <View style={styles.sectionHeader}>
-            <View>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Where your money went</Text>
-              <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 2 }}>Where your money is going this month</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 3 }}>Where your money is going this month</Text>
             </View>
             {categories.length > 0 && (
               <View
@@ -232,7 +194,7 @@ export function InsightsScreen() {
                 <Ionicons name="bar-chart-outline" size={24} color={theme.tint} />
               </View>
               <Text style={[styles.emptyTitle, { color: theme.text }]}>Your insights will grow here</Text>
-              <Text style={{ color: theme.textSecondary, marginTop: 4, textAlign: 'center', fontSize: 12.5 }}>Record income and expenses to see your spending breakdown.</Text>
+              <Text style={{ color: theme.textSecondary, marginTop: 6, textAlign: 'center', fontSize: 14, lineHeight: 20 }}>Record income and expenses to see your spending breakdown.</Text>
             </View>
           ) : (
             <View style={[styles.categoryCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -248,7 +210,7 @@ export function InsightsScreen() {
                   <View style={[styles.track, { backgroundColor: theme.buttonSecondary }]}>
                     <View style={[styles.bar, { width: `${Math.max((amount / highest) * 100, 4)}%`, backgroundColor: theme.chartColors[index % theme.chartColors.length] }]} />
                   </View>
-                  <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
+                  <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 17 }}>
                     {expenses > 0 ? `${Math.round((amount / expenses) * 100)}% of spending` : ''}
                   </Text>
                 </View>
@@ -325,79 +287,51 @@ function FlowAmount({ label, amount, color }: { label: string; amount: number; c
   );
 }
 
-function Metric({ label, amount, color, icon }: {
-  label: string;
-  amount: number;
-  color: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-}) {
-  const theme = useTheme();
-  return (
-    <View style={styles.metric}>
-      <View style={styles.metricLabel}>
-        <View style={[styles.metricIcon, { backgroundColor: `${color}14` }]}>
-          <Ionicons name={icon} size={14} color={color} />
-        </View>
-        <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{label}</Text>
-      </View>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginTop: 6 }}>{formatMoney(amount)}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 24, gap: 14 },
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, gap: 18 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 22, fontWeight: '700', letterSpacing: -0.4 },
-  headerIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  moneyFlowHero: { borderRadius: 20, padding: 18, minHeight: 128, justifyContent: 'center', overflow: 'hidden' },
-  safeLabel: { fontSize: 11.5, fontWeight: '700', marginBottom: 2 },
+  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  moneyFlowHero: { borderRadius: 22, padding: 20, minHeight: 140, justifyContent: 'center', overflow: 'hidden' },
+  safeLabel: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
   cardLabel: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  balanceLabel: { color: '#FFEDD5', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  balance: { color: '#FFFFFF', fontSize: 28, fontWeight: '700', marginTop: 6, letterSpacing: -0.5 },
-  balanceNote: { color: '#FFEDD5', fontSize: 11.5, marginTop: 4 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
-  moneyFlowHeader: { gap: 8 },
-  moneyFlowSection: { gap: 10 },
-  cashflow: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 12 },
-  cashflowPeriodSwitch: { width: '100%', maxWidth: 240, minWidth: 0, flexDirection: 'row', padding: 3, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
-  cashflowPeriodOption: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 32, borderRadius: 9 },
-  monthlyCashflow: { flexDirection: 'row', alignItems: 'center' },
-  flowSummary: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 4 },
-  flowSummaryCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14 },
+  balanceLabel: { color: '#D1FAE5', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
+  balance: { color: '#FFFFFF', fontSize: 34, fontWeight: '700', marginTop: 6, letterSpacing: -0.6 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  moneyFlowHeader: { gap: 12 },
+  moneyFlowSection: { gap: 12 },
+  cashflowPeriodSwitch: { width: '100%', maxWidth: 280, minWidth: 0, flexDirection: 'row', padding: 4, borderRadius: 13, borderWidth: StyleSheet.hairlineWidth },
+  cashflowPeriodOption: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 38, borderRadius: 10 },
+  flowSummary: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 2 },
+  flowSummaryCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 18, padding: 16 },
   spendingRing: { width: 104, height: 104, alignItems: 'center', justifyContent: 'center' },
   spendingRingCenter: { alignItems: 'center' },
-  spendingRingPercent: { fontSize: 20, fontWeight: '700', letterSpacing: -0.4 },
-  spendingRingLabel: { fontSize: 11, marginTop: 1 },
-  flowAmounts: { flex: 1, gap: 8 },
+  spendingRingPercent: { fontSize: 22, fontWeight: '700', letterSpacing: -0.4 },
+  spendingRingLabel: { fontSize: 12, marginTop: 2 },
+  flowAmounts: { flex: 1, gap: 10 },
   flowAmount: { gap: 2 },
-  flowAmountLabel: { fontSize: 11.5 },
-  flowAmountValue: { fontSize: 15, fontWeight: '700' },
-  shortSummary: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 10, gap: 3 },
-  shortSummaryLabel: { fontSize: 11, fontWeight: '700' },
-  shortSummaryText: { fontSize: 12.5, lineHeight: 18 },
-  metric: { flex: 1, minWidth: 0 },
-  metricLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metricIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  metricDivider: { width: StyleSheet.hairlineWidth, height: 38, marginHorizontal: 12 },
+  flowAmountLabel: { fontSize: 13 },
+  flowAmountValue: { fontSize: 17, fontWeight: '700' },
+  shortSummary: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, paddingHorizontal: 15, paddingVertical: 13, gap: 5 },
+  shortSummaryLabel: { fontSize: 12, fontWeight: '700' },
+  shortSummaryText: { fontSize: 14, lineHeight: 20 },
   categoryCount: { minHeight: 26, paddingHorizontal: 8, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  trendsCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14 },
+  trendsCard: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 16 },
   trendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  trendLabel: { fontSize: 12 },
-  trendValue: { fontSize: 16, fontWeight: '700', marginTop: 3 },
-  categoryCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 14, gap: 14 },
-  categoryRow: { gap: 6 },
+  trendLabel: { fontSize: 14, lineHeight: 20 },
+  trendValue: { fontSize: 21, fontWeight: '700', marginTop: 5 },
+  categoryCard: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 16 },
+  categoryRow: { gap: 8 },
   categoryLine: { flexDirection: 'row', justifyContent: 'space-between' },
   categoryLabel: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   categoryDot: { width: 8, height: 8, borderRadius: 4 },
-  categoryName: { fontSize: 13.5, fontWeight: '600' },
-  categoryAmount: { fontSize: 13, fontWeight: '700' },
-  track: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  categoryName: { fontSize: 15, fontWeight: '600' },
+  categoryAmount: { fontSize: 14.5, fontWeight: '700' },
+  track: { height: 8, borderRadius: 4, overflow: 'hidden' },
   bar: { height: '100%', borderRadius: 3 },
-  empty: { alignItems: 'center', padding: 22, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
+  empty: { alignItems: 'center', padding: 24, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
   emptyIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontSize: 14.5, fontWeight: '700', marginTop: 8 },
-  footnote: { fontSize: 11.5, lineHeight: 16, textAlign: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', marginTop: 10 },
+  footnote: { fontSize: 12.5, lineHeight: 18, textAlign: 'center' },
   loader: { padding: 40 },
 });

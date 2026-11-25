@@ -230,7 +230,12 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title="About" theme={theme}>
-        <Row label="App" value="Expense Tracker" theme={theme} />
+        <View style={{ marginBottom: 8 }}>
+          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Expense Tracker</Text>
+          <Text style={{ color: theme.textSecondary, fontSize: 13, marginTop: 3 }}>
+            Track your money every day
+          </Text>
+        </View>
         <Row label="Version" value={Constants.expoConfig?.version ?? '-'} theme={theme} />
         <LinkRow
           label="Privacy Policy"

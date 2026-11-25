@@ -1,5 +1,7 @@
 # Expense Tracker
 
+Track your money every day.
+
 An offline student budget and expense tracker built with Expo for Android and
 the web.
 Students can track baon, allowances, part-time earnings, school costs,

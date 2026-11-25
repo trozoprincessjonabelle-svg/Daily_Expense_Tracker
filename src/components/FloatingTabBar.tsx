@@ -17,8 +17,12 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
   const insets = useSafeAreaInsets();
 
   const go = (route: (typeof state.routes)[number], focused: boolean) => {
-    const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-    if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+      canPreventDefault: true,
+    });
+    if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
   };
   const icon = (route: (typeof state.routes)[number], focused: boolean, size: number) =>
     descriptors[route.key].options.tabBarIcon?.({
@@ -55,7 +59,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
                 ]}
               >
                 {isAdd ? (
-                  <View style={[styles.addIcon, { backgroundColor: '#FF9500' }]}>
+                  <View style={[styles.addIcon, { backgroundColor: theme.buttonPrimary }]}>
                     <Ionicons name="add" size={27} color="#FFFFFF" />
                   </View>
                 ) : (

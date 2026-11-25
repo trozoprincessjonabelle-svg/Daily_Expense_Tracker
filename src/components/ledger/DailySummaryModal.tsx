@@ -32,6 +32,7 @@ export function DailySummaryModal({
   );
   const income = sumByType(transactions, 'income');
   const totalExpenses = sumByType(expenses, 'expense');
+  const goalSavings = sumByType(transactions, 'savings');
   const fundActivity = emergencyFundActivity(transactions);
 
   return (
@@ -74,7 +75,7 @@ export function DailySummaryModal({
               <SummaryTotal label="Money added" amount={income} color={theme.success} />
               <SummaryTotal label="Total spent" amount={totalExpenses} color={theme.danger} />
             </View>
-            {(fundActivity.added > 0 || fundActivity.used > 0) && (
+            {(fundActivity.added > 0 || fundActivity.used > 0 || goalSavings > 0) && (
               <View style={{
                 backgroundColor: theme.buttonSecondary,
                 borderRadius: 14,
@@ -100,6 +101,14 @@ export function DailySummaryModal({
                     </Text>
                   </View>
                 )}
+                {goalSavings > 0 && (
+                  <View style={styles.fundActivityRow}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 13 }}>Savings goals</Text>
+                    <Text style={{ color: theme.tint, fontSize: 13, fontWeight: '700' }}>
+                      -{formatMoney(goalSavings)}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
             <View style={[styles.remainingCard, { backgroundColor: `${theme.success}12` }]}>
@@ -111,7 +120,7 @@ export function DailySummaryModal({
                   Remaining from added money
                 </Text>
                 <Text style={[styles.remainingAmount, { color: theme.success }]}>
-                  {formatMoney(income - totalExpenses)}
+                  {formatMoney(income - totalExpenses - goalSavings)}
                 </Text>
               </View>
             </View>

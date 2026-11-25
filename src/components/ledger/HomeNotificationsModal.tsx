@@ -52,12 +52,21 @@ export function HomeNotificationsModal({
     })),
     ...transactions.map((transaction) => {
       const income = transaction.type === 'income';
+      const goalContribution = transaction.type === 'savings';
       return {
         id: `transaction-${transaction.id}`,
         createdAt: transaction.created_at,
-        icon: income ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline' as React.ComponentProps<typeof Ionicons>['name'],
-        tone: income ? theme.success : theme.tint,
-        title: income ? 'Money received' : 'Expense recorded',
+        icon: income
+          ? 'arrow-down-circle-outline' as React.ComponentProps<typeof Ionicons>['name']
+          : goalContribution
+            ? 'wallet-outline'
+            : 'arrow-up-circle-outline',
+        tone: income ? theme.success : goalContribution ? theme.accent : theme.tint,
+        title: income
+          ? 'Money received'
+          : goalContribution
+            ? `${settings.language === 'tl' ? 'Ipon' : 'Savings'}: ${transaction.note}`
+            : 'Expense recorded',
         translateTitle: true,
         body: `${transaction.category} · ${income ? '+' : '-'}${formatMoney(transaction.amount)} · ${formatDate(transaction.transaction_date, settings.language)}`,
       };

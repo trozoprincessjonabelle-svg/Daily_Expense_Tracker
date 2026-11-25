@@ -37,6 +37,7 @@ export function ActivityCalendar({
   );
   const selectedIncome = sumByType(selectedTransactions, 'income');
   const selectedExpenses = sumByType(selectedTransactions, 'expense');
+  const selectedSavings = sumByType(selectedTransactions, 'savings');
 
   const changeMonth = (offset: number) => {
     const nextMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + offset, 1);
@@ -65,8 +66,8 @@ export function ActivityCalendar({
           </View>
           <View style={styles.selectedNetBlock}>
             <Text style={[styles.netLabel, { color: theme.textSecondary }]}>Money left</Text>
-            <Text style={[styles.selectedNet, { color: selectedIncome - selectedExpenses >= 0 ? theme.success : theme.danger }]}>
-              {formatMoney(selectedIncome - selectedExpenses)}
+            <Text style={[styles.selectedNet, { color: selectedIncome - selectedExpenses - selectedSavings >= 0 ? theme.success : theme.danger }]}>
+              {formatMoney(selectedIncome - selectedExpenses - selectedSavings)}
             </Text>
           </View>
         </View>

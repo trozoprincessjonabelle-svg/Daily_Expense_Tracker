@@ -15,7 +15,7 @@
       "package": "com.example.offlineaistarter",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#C2410C",
+        "backgroundColor": "#047857",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -33,7 +33,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#C2410C",
+          "backgroundColor": "#047857",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }

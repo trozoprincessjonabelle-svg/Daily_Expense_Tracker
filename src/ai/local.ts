@@ -10,14 +10,10 @@
 import { requireOptionalNativeModule } from 'expo';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import {
-  createLLM,
-  GEMMA_4_E2B_IT,
-  isMemoryError,
-  LiteRTLMError,
-  type ConversationHandle,
-  type LiteRTLMInstance,
-  type MultimodalPart,
+import type {
+  ConversationHandle,
+  LiteRTLMInstance,
+  MultimodalPart,
 } from 'react-native-litert-lm';
 import {
   getModelResumeData,
@@ -29,7 +25,17 @@ import { scanLocalDevice } from './deviceCapabilities';
 import { hasDegenerateRepetition, hasUnexpectedLanguage } from './outputQuality';
 import { LOCAL_MODEL_FILENAME, LOCAL_MODEL_SIZE_BYTES } from './modelInfo';
 
-const MODEL_URL = GEMMA_4_E2B_IT;
+type LiteRTLibrary = typeof import('react-native-litert-lm');
+
+let liteRTLibrary: LiteRTLibrary | null = null;
+
+async function loadLiteRTLibrary(): Promise<LiteRTLibrary> {
+  if (!liteRTLibrary) {
+    liteRTLibrary = await import('react-native-litert-lm');
+  }
+  return liteRTLibrary;
+}
+
 export const supportsLocalAI = true;
 const MODEL_FILENAME = LOCAL_MODEL_FILENAME;
 const TMP_FILENAME = MODEL_FILENAME + '.download';
@@ -145,6 +151,9 @@ function readResumeToken(saved: string | null): string | undefined {
  */
 export async function downloadModel(): Promise<void> {
   if (activeDownload) return;
+  const device = await scanLocalDevice();
+  if (!device.compatible) throw new Error('Local AI requires a 64-bit ARM Android phone.');
+  const { GEMMA_4_E2B_IT } = await loadLiteRTLibrary();
   downloadIntent = null;
   await FileSystem.makeDirectoryAsync(modelDir(), { intermediates: true }).catch(
     () => {}
@@ -207,7 +216,7 @@ export async function downloadModel(): Promise<void> {
   });
 
   activeDownload = FileSystem.createDownloadResumable(
-    MODEL_URL,
+    GEMMA_4_E2B_IT,
     tmpUri(),
     {},
     onProgress,
@@ -329,10 +338,10 @@ export async function deleteModel(): Promise<void> {
 }
 
 function friendlyLocalError(e: unknown): Error {
-  if (isMemoryError(e)) {
+  if (liteRTLibrary?.isMemoryError(e)) {
     return new Error('Not enough free RAM right now. Close other apps and retry.');
   }
-  if (e instanceof LiteRTLMError) {
+  if (liteRTLibrary && e instanceof liteRTLibrary.LiteRTLMError) {
     switch (e.code) {
       case 'MEMORY_ESTIMATE_EXCEEDED':
         return new Error(
@@ -390,10 +399,11 @@ async function ensureEngine(
   engineLoading = (async () => {
     const device = await scanLocalDevice();
     if (!device.compatible) throw new Error('Local AI requires a 64-bit ARM Android phone.');
+    const liteRT = await loadLiteRTLibrary();
     let selectedBackend: 'npu' | 'gpu' | 'cpu' = backend === 'auto' ? device.recommendedBackend : backend;
     if ((selectedBackend === 'npu' && !device.npuDetected) || (selectedBackend === 'gpu' && !device.gpuAvailable)) selectedBackend = device.recommendedBackend;
     if (!device.memoryReady) throw new Error('This model requires more total RAM.');
-    const instance = createLLM();
+    const instance = liteRT.createLLM();
     const loadConfig = {
       systemPrompt,
       maxContextTokens: LOCAL_CONTEXT_TOKENS,
@@ -417,7 +427,7 @@ async function ensureEngine(
     } catch (e) {
       // If an accelerator allocation actually fails, retry the smaller CPU
       // path. Capability checks already used total RAM rather than free RAM.
-      if (selectedBackend === 'cpu' || !isMemoryError(e)) {
+      if (selectedBackend === 'cpu' || !liteRT.isMemoryError(e)) {
         instance.close();
         throw e;
       }

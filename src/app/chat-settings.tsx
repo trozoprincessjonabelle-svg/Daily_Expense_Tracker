@@ -277,8 +277,8 @@ function LocalSection({ theme }: { theme: Theme }) {
     loaded: 'Ready',
   }[status.state];
 
-  const button = (label: string, onPress: () => void, destructive = false) => (
-    <Button key={label} label={label} onPress={onPress} variant={destructive ? 'destructiveSecondary' : label === 'Unload' ? 'secondary' : 'primary'} style={styles.flex} />
+  const button = (label: string, onPress: () => void, destructive = false, disabled = false) => (
+    <Button key={label} label={label} onPress={onPress} disabled={disabled} variant={destructive ? 'destructiveSecondary' : label === 'Unload' ? 'secondary' : 'primary'} style={styles.flex} />
   );
 
   return (
@@ -315,7 +315,7 @@ function LocalSection({ theme }: { theme: Theme }) {
 
       <View style={styles.buttonRow}>
         {(status.state === 'not_downloaded' || status.state === 'paused') &&
-          button(status.state === 'paused' ? 'Resume download' : 'Download model', () => run(downloadModel))}
+          button(status.state === 'paused' ? 'Resume download' : 'Download model', () => run(downloadModel), false, !device?.compatible)}
         {status.state === 'downloading' && (
           <>
             {button('Pause', () => run(pauseDownload))}
@@ -325,7 +325,9 @@ function LocalSection({ theme }: { theme: Theme }) {
         {status.state === 'paused' && button('Cancel', () => run(cancelDownload), true)}
         {status.state === 'downloaded' &&
           button('Load model', () =>
-            run(() => loadLocalModel(selectedBackend, buildSystemPrompt(settings)))
+            run(() => loadLocalModel(selectedBackend, buildSystemPrompt(settings))),
+            false,
+            !device?.compatible
           )}
         {status.state === 'loaded' && button('Unload', () => run(unloadEngine))}
         {(status.state === 'downloaded' || status.state === 'loaded') &&

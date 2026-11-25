@@ -6,6 +6,7 @@ import { LocalizedText as Text } from '@/components/LocalizedText';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import { ActivityCalendar } from '@/components/ledger/ActivityCalendar';
 import { UpcomingEventModal } from '@/components/ledger/LedgerFeatureModals';
+import { SavingsGoalsSection } from '@/components/ledger/SavingsGoalsSection';
 import { TransactionForm } from '@/components/ledger/TransactionForm';
 import { isEmergencyFundMovement, type TransactionInput, type UpcomingEvent } from '@/db/ledger';
 import { useLedgerFeatures } from '@/hooks/useLedgerFeatures';
@@ -56,6 +57,7 @@ export default function LedgerScreen() {
           events={events}
           eventsLoading={featuresLoading}
         />
+        <SavingsGoalsSection />
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.cardHeading}>
             <View style={[styles.icon, { backgroundColor: `${theme.warning}16` }]}>
@@ -64,7 +66,7 @@ export default function LedgerScreen() {
             <Text style={[styles.cardTitle, { color: theme.text }]}>Upcoming costs</Text>
             <SmoothPressable
               accessibilityRole="button"
-              accessibilityLabel="Add upcoming event"
+              accessibilityLabel="Add cost"
               onPress={() => {
                 setEditingEvent(null);
                 setEventModalVisible(true);
@@ -72,7 +74,7 @@ export default function LedgerScreen() {
               style={[styles.smallAction, { backgroundColor: theme.buttonPrimary }]}
             >
               <Ionicons name="add" size={16} color="#FFFFFF" />
-              <Text style={styles.smallActionText}>Add event</Text>
+              <Text style={styles.smallActionText}>Add cost</Text>
             </SmoothPressable>
           </View>
           {featuresLoading ? (
@@ -162,15 +164,6 @@ export default function LedgerScreen() {
         key={editingEvent?.id ?? 'new-event'}
         visible={eventModalVisible || editingEvent !== null}
         event={editingEvent}
-        availableBalance={transactions.reduce((balance, transaction) => {
-          if (transaction.type === 'income'
-            && transaction.category === 'Savings'
-            && transaction.note === 'Added to emergency fund') {
-            return balance - transaction.amount;
-          }
-          if (isEmergencyFundMovement(transaction)) return balance;
-          return balance + (transaction.type === 'income' ? transaction.amount : -transaction.amount);
-        }, 0)}
         onClose={() => {
           setEventModalVisible(false);
           setEditingEvent(null);

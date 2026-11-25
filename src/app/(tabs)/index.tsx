@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Button } from '@/components/Button';
 import { LocalizedText as Text } from '@/components/LocalizedText';
@@ -44,15 +44,17 @@ export default function HomeScreen() {
   const [deletingRecentActivity, setDeletingRecentActivity] = useState(false);
   const criticalAlertDismissed = useRef(false);
   const todayKey = useCurrentDateKey();
+  const greeting = getGreeting(new Date().getHours());
   const todayTransactions = transactions.filter(
     (transaction) => transaction.transaction_date === todayKey
   );
   const todayIncome = sumByType(todayTransactions, 'income');
   const todayExpenses = sumByType(todayTransactions, 'expense');
-  const dailyRemaining = todayIncome - todayExpenses;
+  const todaySavings = sumByType(todayTransactions, 'savings');
+  const dailyRemaining = todayIncome - todayExpenses - todaySavings;
   const balance = balanceThroughDate(transactions, todayKey);
   const availableToSpend = Math.max(0, balance);
-  const availableToday = availableToSpend + todayExpenses;
+  const availableToday = availableToSpend + todayExpenses + todaySavings;
   const budgetUsedPercent = todayExpenses === 0
     ? 0
     : availableToday > 0
@@ -64,7 +66,7 @@ export default function HomeScreen() {
   const lowCashLimit = todayIncome * lowCashPercent / 100;
   const alertThresholdReached = todayIncome > 0
     ? dailyRemaining <= lowCashLimit
-    : todayExpenses > 0;
+    : todayExpenses > 0 || todaySavings > 0;
   const showLowCashWarning = alertThresholdReached;
   const lowCashTone = remainingPercent !== null && remainingPercent <= 10
     ? {
@@ -74,7 +76,7 @@ export default function HomeScreen() {
     }
     : remainingPercent !== null && remainingPercent <= lowCashPercent
       ? {
-        color: settings.theme === 'dark' ? theme.warning : '#A86528',
+        color: theme.warning,
         background: theme.warningSurface,
         border: theme.warningBorder,
       }
@@ -207,7 +209,7 @@ export default function HomeScreen() {
     const transactionIds = recentTransactions.map((transaction) => transaction.id);
     confirmAction(
       'Are you sure you want to delete all recent activity?',
-      'This permanently deletes the recent transactions shown on Home. This cannot be undone. Deleting emergency-fund entries also changes your emergency-fund balance.',
+      'This permanently deletes the recent transactions shown on Home. Deleting savings contributions also reduces their goal progress and returns those amounts to your available balance. This cannot be undone. Deleting emergency-fund entries also changes your emergency-fund balance.',
       'Delete',
       async () => {
         setDeletingRecentActivity(true);
@@ -232,45 +234,64 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.brandRow}>
+            <Image
+              source={require('../../../assets/images/expense-tracker-header-logo.png')}
+              style={styles.brandLogo}
+              resizeMode="cover"
+              accessible
+              accessibilityLabel="Expense Tracker logo"
+            />
+            <Text numberOfLines={1} style={[styles.appName, { color: theme.text }]}>
+              Expense Tracker
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            <SmoothPressable
+              accessibilityRole="button"
+              accessibilityLabel={`Notifications${notificationCount > 0 ? `, ${notificationCount > 9 ? '9 or more' : notificationCount} unread updates` : ''}`}
+              onPress={() => setNotificationsVisible(true)}
+              style={[
+                styles.headerIconButton,
+                {
+                  backgroundColor: notificationCount > 0 ? `${theme.tint}14` : theme.card,
+                  borderColor: notificationCount > 0 ? `${theme.tint}50` : theme.border,
+                },
+              ]}
+            >
+              <Ionicons name="notifications-outline" size={20} color={theme.tint} />
+              {notificationCount > 0 && (
+                <View style={[styles.notificationBadge, { backgroundColor: theme.danger }]}>
+                  <Text style={styles.notificationBadgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+                </View>
+              )}
+            </SmoothPressable>
+            <SmoothPressable
+              accessibilityRole="button"
+              accessibilityLabel="History"
+              accessibilityHint="Opens transaction history"
+              onPress={() => router.push('/history')}
+              style={[styles.headerIconButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <Ionicons name="time-outline" size={20} color={theme.tint} />
+            </SmoothPressable>
+          </View>
+        </View>
         <View style={styles.greetingWrap}>
-          <Text numberOfLines={1} style={[styles.greeting, { color: theme.text }]}>
-            Hi, {settings.nickname
-              ? <Text translate={false}>{settings.nickname}</Text>
-              : 'there'}
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={[styles.greeting, { color: theme.text }]}
+          >
+            {greeting}
+            {settings.nickname && (
+              <Text translate={false}>, {settings.nickname}</Text>
+            )}
           </Text>
           <Text style={[styles.subGreeting, { color: theme.textSecondary }]}>
             {formatDate(todayKey, settings.language)}
           </Text>
-        </View>
-        <View style={styles.headerActions}>
-          <SmoothPressable
-            accessibilityRole="button"
-            accessibilityLabel={`Notifications${notificationCount > 0 ? `, ${notificationCount > 9 ? '9 or more' : notificationCount} unread updates` : ''}`}
-            onPress={() => setNotificationsVisible(true)}
-            style={[
-              styles.headerIconButton,
-              {
-                backgroundColor: notificationCount > 0 ? `${theme.tint}14` : theme.card,
-                borderColor: notificationCount > 0 ? `${theme.tint}50` : theme.border,
-              },
-            ]}
-          >
-            <Ionicons name="notifications-outline" size={20} color={theme.tint} />
-            {notificationCount > 0 && (
-              <View style={[styles.notificationBadge, { backgroundColor: theme.danger }]}>
-                <Text style={styles.notificationBadgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
-              </View>
-            )}
-          </SmoothPressable>
-          <SmoothPressable
-            accessibilityRole="button"
-            accessibilityLabel="History"
-            accessibilityHint="Opens transaction history"
-            onPress={() => router.navigate('/(tabs)/history' as Href)}
-            style={[styles.headerIconButton, { backgroundColor: theme.buttonPrimary, borderColor: theme.buttonPrimary }]}
-          >
-            <Ionicons name="time-outline" size={20} color="#FFFFFF" />
-          </SmoothPressable>
         </View>
       </View>
 
@@ -304,24 +325,22 @@ export default function HomeScreen() {
         <View style={styles.balanceContentRow}>
           <View style={styles.balanceTextCol}>
             <Text style={styles.balanceLabel}>Available Balance</Text>
-            <Text numberOfLines={1} adjustsFontSizeToFit style={styles.balance}>
-              {formatMoney(balance)}
-            </Text>
-            <View style={styles.balanceFoot}>
-              <Ionicons name={balance >= 0 ? 'trending-up-outline' : 'trending-down-outline'} size={14} color="#FFEDD5" />
-              <Text style={styles.balanceHint}>Regular wallet</Text>
+            <View style={styles.balanceAmountRow}>
+              <BudgetUsageRing percent={budgetUsedPercent} color={theme.accent} />
+              <Text numberOfLines={1} adjustsFontSizeToFit style={styles.balance}>
+                {formatMoney(balance)}
+              </Text>
             </View>
           </View>
 
           <View style={styles.balanceActionCol}>
-            <BudgetUsageRing percent={budgetUsedPercent} color={theme.accent} />
             <SmoothPressable
               accessibilityRole="button"
               accessibilityLabel="Open calculator"
               onPress={() => setCalculatorVisible(true)}
               style={[styles.calculatorButton, { backgroundColor: theme.accent }]}
             >
-              <Ionicons name="calculator-outline" size={21} color="#1A0E05" />
+              <Ionicons name="calculator-outline" size={21} color="#052E2B" />
             </SmoothPressable>
           </View>
         </View>
@@ -334,7 +353,7 @@ export default function HomeScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Activity</Text>
-        <SmoothPressable onPress={() => router.navigate('/(tabs)/history' as Href)}>
+        <SmoothPressable onPress={() => router.push('/history')}>
           <View style={styles.seeAll}>
             <Text style={{ color: theme.tint, fontWeight: '600', fontSize: 13 }}>See all</Text>
             <Ionicons name="chevron-forward" size={14} color={theme.tint} />
@@ -362,7 +381,11 @@ export default function HomeScreen() {
               <View style={styles.transactionItem}>
                 <TransactionRow
                   transaction={transaction}
-                  onPress={!isEmergencyFundMovement(transaction) ? () => setEditingTransaction(transaction) : undefined}
+                  onPress={!isEmergencyFundMovement(transaction)
+                    && transaction.type !== 'savings'
+                    && !transaction.savings_goal_id
+                    ? () => setEditingTransaction(transaction)
+                    : undefined}
                   timeLabel={transaction.transaction_date === recentActivityDate
                     ? formatTime(transaction.created_at, settings.language)
                     : `${formatDate(transaction.transaction_date, settings.language)} · ${formatTime(transaction.created_at, settings.language)}`}
@@ -373,7 +396,7 @@ export default function HomeScreen() {
                 accessibilityLabel={`Delete ${transaction.category} transaction`}
                 onPress={() => confirmAction(
                   'Are you sure you want to delete this transaction?',
-                  `${transaction.category} · ${formatMoney(transaction.amount)}. ${isEmergencyFundMovement(transaction) ? 'This will also update your emergency fund balance. ' : ''}This cannot be undone.`,
+                  `${transaction.category} · ${formatMoney(transaction.amount)}. ${transaction.type === 'savings' ? 'This also reduces the savings goal progress and returns the amount to your available balance. ' : isEmergencyFundMovement(transaction) ? 'This will also update your emergency fund balance. ' : ''}This cannot be undone.`,
                   'Delete',
                   () => remove(transaction.id)
                 )}
@@ -511,6 +534,12 @@ function toDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function getGreeting(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 function EmptyState({ text }: { text: string }) {
   const theme = useTheme();
   return (
@@ -523,27 +552,30 @@ function EmptyState({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 24, gap: 14 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  greetingWrap: { flex: 1, minWidth: 0 },
-  greeting: { fontSize: 22, fontWeight: '700', letterSpacing: -0.4 },
-  subGreeting: { fontSize: 12, marginTop: 2 },
+  header: { gap: 10 },
+  headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandLogo: { width: 40, height: 40, borderRadius: 12 },
+  appName: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+  greetingWrap: { gap: 2 },
+  greeting: { fontSize: 19, fontWeight: '700', letterSpacing: -0.3 },
+  subGreeting: { fontSize: 13 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerIconButton: { width: 40, height: 40, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   notificationBadge: { position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, paddingHorizontal: 3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   notificationBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
   balanceCard: { borderRadius: 20, padding: 18, minHeight: 128, justifyContent: 'space-between', gap: 10 },
-  balanceContentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 4 },
+  balanceContentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   balanceTextCol: { flex: 1, minWidth: 0, gap: 4 },
-  balanceLabel: { color: '#FFEDD5', fontSize: 11, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  balanceAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  balanceLabel: { color: '#D1FAE5', fontSize: 11, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
   balance: { flexShrink: 1, minWidth: 0, color: '#FFFFFF', fontSize: 30, fontWeight: '700', letterSpacing: -0.6 },
-  balanceFoot: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  balanceHint: { color: '#FFEDD5', fontSize: 12 },
-  balanceActionCol: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginLeft: 12 },
+  balanceActionCol: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   calculatorButton: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   budgetUsageRing: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
   budgetUsageCenter: { alignItems: 'center', gap: 1 },
   budgetUsagePercent: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  budgetUsageLabel: { color: '#FFEDD5', fontSize: 7, fontWeight: '700', letterSpacing: 0.5 },
+  budgetUsageLabel: { color: '#D1FAE5', fontSize: 7, fontWeight: '700', letterSpacing: 0.5 },
   listCard: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
   summaryRow: { flexDirection: 'row', gap: 12 },
   summaryCard: { flex: 1, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 13, minHeight: 76, justifyContent: 'center', gap: 8 },

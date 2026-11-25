@@ -2,7 +2,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import type { LedgerTransaction, TransactionInput } from '@/db/ledger';
 import { readFile, saveFile } from './file';
 
-const CSV_HEADERS = ['transaction_date', 'type', 'category', 'amount', 'note'] as const;
+const CSV_HEADERS = ['transaction_date', 'type', 'category', 'amount', 'note', 'savings_goal_id'] as const;
+const LEGACY_CSV_HEADERS = ['transaction_date', 'type', 'category', 'amount', 'note'] as const;
 
 function escapeCsv(value: string): string {
   return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -22,6 +23,7 @@ export async function exportTransactionsCsv(transactions: LedgerTransaction[]): 
       transaction.category,
       String(transaction.amount),
       transaction.note,
+      transaction.savings_goal_id ?? '',
     ].map(escapeCsv).join(',')),
   ];
   await saveFile(
@@ -84,8 +86,11 @@ function isValidDate(value: string): boolean {
 export function parseTransactionsCsv(text: string): TransactionInput[] {
   const rows = parseCsv(text.replace(/^\uFEFF/, ''));
   const headers = rows.shift();
-  if (!headers || headers.length !== CSV_HEADERS.length
-    || !CSV_HEADERS.every((header) => headers.includes(header))) {
+  const isCurrentFormat = headers?.length === CSV_HEADERS.length
+    && CSV_HEADERS.every((header) => headers.includes(header));
+  const isLegacyFormat = headers?.length === LEGACY_CSV_HEADERS.length
+    && LEGACY_CSV_HEADERS.every((header) => headers.includes(header));
+  if (!headers || (!isCurrentFormat && !isLegacyFormat)) {
     throw new Error('This CSV must contain transaction_date, type, category, amount, and note columns.');
   }
   const column = Object.fromEntries(headers.map((header, index) => [header, index])) as Record<
@@ -102,7 +107,9 @@ export function parseTransactionsCsv(text: string): TransactionInput[] {
     const category = row[column.category].trim();
     const transactionDate = row[column.transaction_date];
     const note = row[column.note];
-    if (type !== 'income' && type !== 'expense') {
+    const goalIdColumn = headers.indexOf('savings_goal_id');
+    const savingsGoalId = goalIdColumn >= 0 ? row[goalIdColumn].trim() || null : null;
+    if (type !== 'income' && type !== 'expense' && type !== 'savings') {
       throw new Error(`CSV row ${index + 2} has an invalid transaction type.`);
     }
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -121,6 +128,7 @@ export function parseTransactionsCsv(text: string): TransactionInput[] {
       category,
       note,
       transaction_date: transactionDate,
+      savings_goal_id: savingsGoalId,
     };
   });
 }

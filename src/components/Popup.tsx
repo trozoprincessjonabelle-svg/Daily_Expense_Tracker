@@ -9,11 +9,12 @@ import { useReduceMotion } from './AccessibilityPreferences';
 import { Button } from './Button';
 import { LocalizedTextInput as TextInput } from './LocalizedTextInput';
 
-const BlurTargetContext = createContext<RefObject<View | null>>({ current: null });
+type NativeViewInstance = React.ComponentRef<typeof View>;
+const BlurTargetContext = createContext<RefObject<NativeViewInstance | null>>({ current: null });
 
 /** One shared Android blur target; popup content stays sharp above it. */
 export function PopupProvider({ children }: { children: React.ReactNode }) {
-  const target = useRef<View | null>(null);
+  const target = useRef<NativeViewInstance | null>(null);
   return (
     <BlurTargetContext.Provider value={target}>
       <BlurTargetView ref={target} style={styles.flex}>{children}</BlurTargetView>

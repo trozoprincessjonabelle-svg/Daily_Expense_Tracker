@@ -1,6 +1,6 @@
 import { getDb, newId } from './client';
 
-export type TransactionType = 'expense' | 'income';
+export type TransactionType = 'expense' | 'income' | 'savings';
 
 export interface LedgerTransaction {
   id: string;
@@ -10,6 +10,7 @@ export interface LedgerTransaction {
   note: string;
   transaction_date: string;
   created_at: number;
+  savings_goal_id?: string | null;
 }
 
 export type TransactionInput = Omit<LedgerTransaction, 'id' | 'created_at'>;
@@ -327,6 +328,9 @@ export async function saveTransaction(
   input: TransactionInput,
   id?: string
 ): Promise<void> {
+  if (input.type === 'savings') {
+    throw new Error('Savings goal contributions must be managed from the savings goal.');
+  }
   const db = await getDb();
   await db.withTransactionAsync(async () => {
     if (id) {
@@ -335,6 +339,9 @@ export async function saveTransaction(
         id
       );
       if (!previous) throw new Error('This transaction is no longer available.');
+      if (previous.type === 'savings' || previous.savings_goal_id) {
+        throw new Error('Savings goal transactions cannot be edited as regular transactions.');
+      }
       await adjustEmergencyFundBalance(
         db,
         emergencyFundMovement(input) - emergencyFundMovement(previous)
@@ -380,20 +387,71 @@ export async function deleteTransactions(ids: readonly string[]): Promise<void> 
   const db = await getDb();
   await db.withTransactionAsync(async () => {
     let emergencyFundAdjustment = 0;
+    const transactions: LedgerTransaction[] = [];
     for (const id of uniqueIds) {
       const transaction = await db.getFirstAsync<LedgerTransaction>(
         'SELECT * FROM ledger_transactions WHERE id = ?',
         id
       );
       if (!transaction) throw new Error('This transaction is no longer available.');
+      transactions.push(transaction);
       emergencyFundAdjustment -= emergencyFundMovement(transaction);
     }
 
     await adjustEmergencyFundBalance(db, emergencyFundAdjustment);
+    for (const transaction of transactions) {
+      await removeSavingsGoalProgress(db, transaction);
+    }
     for (const id of uniqueIds) {
       await db.runAsync('DELETE FROM ledger_transactions WHERE id = ?', id);
     }
   });
+}
+
+async function removeSavingsGoalProgress(
+  db: Awaited<ReturnType<typeof getDb>>,
+  transaction: LedgerTransaction
+): Promise<void> {
+  if (transaction.type !== 'savings' || !transaction.savings_goal_id) return;
+  const goal = await db.getFirstAsync<{ id: string }>(
+    'SELECT id FROM ledger_savings_goals WHERE id = ?',
+    transaction.savings_goal_id
+  );
+  if (!goal) {
+    const refund = await db.getFirstAsync<{ id: string; amount: number }>(
+      `SELECT id, amount FROM ledger_transactions
+       WHERE type = 'income'
+         AND category = 'Savings goal refund'
+         AND savings_goal_id = ?`,
+      transaction.savings_goal_id
+    );
+    if (!refund) return;
+    const remainingRefund = refund.amount - transaction.amount;
+    if (remainingRefund < -0.005) {
+      throw new Error('Savings goal refund no longer matches its transaction history.');
+    }
+    if (remainingRefund <= 0.005) {
+      await db.runAsync('DELETE FROM ledger_transactions WHERE id = ?', refund.id);
+    } else {
+      await db.runAsync(
+        'UPDATE ledger_transactions SET amount = ? WHERE id = ?',
+        remainingRefund,
+        refund.id
+      );
+    }
+    return;
+  }
+  const result = await db.runAsync(
+    `UPDATE ledger_savings_goals
+     SET saved_amount = saved_amount - ?
+     WHERE id = ? AND saved_amount >= ?`,
+    transaction.amount,
+    transaction.savings_goal_id,
+    transaction.amount
+  );
+  if (result.changes !== 1) {
+    throw new Error('Savings goal progress no longer matches its transaction history.');
+  }
 }
 
 async function adjustEmergencyFundBalance(
@@ -421,6 +479,7 @@ export async function clearTransactionHistory(): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync('DELETE FROM ledger_transactions');
     await db.runAsync('UPDATE ledger_emergency_fund SET balance = 0, goal = 0 WHERE id = 1');
+    await db.runAsync('UPDATE ledger_savings_goals SET saved_amount = 0');
   });
 }
 
@@ -429,6 +488,7 @@ export async function clearAllLedgerData(): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync('DELETE FROM ledger_transactions');
     await db.runAsync('DELETE FROM ledger_upcoming_events');
+    await db.runAsync('DELETE FROM ledger_savings_goals');
     await db.runAsync('UPDATE ledger_emergency_fund SET balance = 0, goal = 0 WHERE id = 1');
   });
 }
@@ -457,24 +517,49 @@ export async function replaceTransactions(
     if (nextBalance < 0) {
       throw new Error('These transactions would make your emergency fund balance negative.');
     }
+    const goals = await db.getAllAsync<{ id: string; target_amount: number }>(
+      'SELECT id, target_amount FROM ledger_savings_goals'
+    );
+    const goalTotals = new Map<string, number>();
+    for (const transaction of transactions) {
+      if (transaction.type !== 'savings' || !transaction.savings_goal_id) continue;
+      goalTotals.set(
+        transaction.savings_goal_id,
+        (goalTotals.get(transaction.savings_goal_id) ?? 0) + transaction.amount
+      );
+    }
+    for (const goal of goals) {
+      if ((goalTotals.get(goal.id) ?? 0) > goal.target_amount) {
+        throw new Error('Imported savings contributions exceed a goal target.');
+      }
+    }
 
     await db.runAsync(
       'UPDATE ledger_emergency_fund SET balance = ? WHERE id = 1',
       nextBalance
     );
     await db.runAsync('DELETE FROM ledger_transactions');
+    await db.runAsync('UPDATE ledger_savings_goals SET saved_amount = 0');
     for (const transaction of transactions) {
       await db.runAsync(
         `INSERT INTO ledger_transactions
-          (id, type, amount, category, note, transaction_date, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          (id, type, amount, category, note, transaction_date, created_at, savings_goal_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         newId(),
         transaction.type,
         transaction.amount,
         transaction.category,
         transaction.note,
         transaction.transaction_date,
-        Date.now()
+        Date.now(),
+        transaction.savings_goal_id ?? null
+      );
+    }
+    for (const goal of goals) {
+      await db.runAsync(
+        'UPDATE ledger_savings_goals SET saved_amount = ? WHERE id = ?',
+        goalTotals.get(goal.id) ?? 0,
+        goal.id
       );
     }
   });

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -36,12 +37,10 @@ export default function RootLayout() {
       }
 
       if (!active) return;
-      try {
-        await refreshModelStatus();
-      } catch (error) {
+      setReady(true);
+      void refreshModelStatus().catch((error: unknown) => {
         console.warn('Unable to refresh local model status:', error);
-      }
-      if (active) setReady(true);
+      });
     };
     void initialize();
     return () => { active = false; };
@@ -115,9 +114,43 @@ function RootNavigator() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ title: translate(settings.language, 'Settings') }} />
           <Stack.Screen name="chat-settings" options={{ title: translate(settings.language, 'Chat settings') }} />
+          <Stack.Screen
+            name="privacy"
+            options={({ navigation }) => ({
+              title: translate(settings.language, 'Privacy Policy'),
+              headerBackVisible: false,
+              headerLeft: () => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Back"
+                  hitSlop={12}
+                  onPress={() => navigation.goBack()}
+                  style={{ paddingRight: 16, paddingVertical: 8 }}
+                >
+                  <Ionicons name="arrow-back" size={24} color={theme.text} />
+                </Pressable>
+              ),
+            })}
+          />
+          <Stack.Screen
+            name="terms"
+            options={({ navigation }) => ({
+              title: translate(settings.language, 'Terms & Conditions'),
+              headerBackVisible: false,
+              headerLeft: () => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Back"
+                  hitSlop={12}
+                  onPress={() => navigation.goBack()}
+                  style={{ paddingRight: 16, paddingVertical: 8 }}
+                >
+                  <Ionicons name="arrow-back" size={24} color={theme.text} />
+                </Pressable>
+              ),
+            })}
+          />
         </Stack.Protected>
-        <Stack.Screen name="privacy" options={{ title: translate(settings.language, 'Privacy Policy') }} />
-        <Stack.Screen name="terms" options={{ title: translate(settings.language, 'Terms & Conditions') }} />
       </Stack>
       <DownloadStatusIndicator />
     </>

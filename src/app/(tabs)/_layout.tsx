@@ -16,7 +16,11 @@ function tabIcon(filled: IconName, outline: IconName, activeColor: string) {
         styles.iconWrap,
         focused && { backgroundColor: `${activeColor}18` },
       ]}>
-        <Ionicons name={focused ? filled : outline} size={size} color={color} />
+        <Ionicons
+          name={focused ? filled : outline}
+          size={size}
+          color={typeof color === 'string' ? color : activeColor}
+        />
       </View>
     );
   }
@@ -80,7 +84,7 @@ export default function TabLayout() {
         />
         <Tabs.Screen
           name="history"
-          options={{ href: null }}
+          options={{ title: 'History' }}
         />
         <Tabs.Screen
           name="settings"

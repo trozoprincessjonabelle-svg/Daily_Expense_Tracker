@@ -12,14 +12,17 @@ export function TransactionRow({
   transaction,
   onPress,
   timeLabel,
+  timeInDetails = false,
 }: {
   transaction: LedgerTransaction;
   onPress?: () => void;
   timeLabel?: string;
+  timeInDetails?: boolean;
 }) {
   const theme = useTheme();
   const { settings } = useSettings();
   const income = transaction.type === 'income';
+  const goalContribution = transaction.type === 'savings';
   const addedToSavings = transaction.category === 'Savings'
     && transaction.note === 'Added to emergency fund';
   const transferToSavings = transaction.category === 'Emergency fund transfer'
@@ -29,7 +32,9 @@ export function TransactionRow({
   const spentFromSavings = transaction.type === 'expense'
     && transaction.category === 'Emergency fund';
   const transfer = addedToSavings || transferToSavings || transferToWallet || spentFromSavings;
-  const displayTitle = addedToSavings
+  const displayTitle = goalContribution
+    ? `${settings.language === 'tl' ? 'Ipon' : 'Savings'}: ${transaction.note}`
+    : addedToSavings
     ? 'Transfer to savings'
     : transferToSavings
       ? 'Transfer to savings'
@@ -41,7 +46,8 @@ export function TransactionRow({
       ? 'Emergency fund'
       : transaction.note || (income ? 'Income' : 'Expense');
   const categoryIcon: React.ComponentProps<typeof Ionicons>['name'] =
-    transfer ? 'swap-horizontal-outline'
+    goalContribution ? 'wallet-outline'
+      : transfer ? 'swap-horizontal-outline'
       : transaction.category === 'Food' ? 'restaurant-outline'
       : transaction.category === 'Transport' ? 'car-outline'
         : transaction.category === 'School supplies' ? 'book-outline'
@@ -56,30 +62,32 @@ export function TransactionRow({
   const tone = transfer ? theme.accent : income ? theme.success : theme.danger;
   return (
     <SmoothPressable
-      disabled={!onPress}
+      disabled={!onPress || goalContribution || Boolean(transaction.savings_goal_id)}
       onPress={onPress}
-      accessibilityLabel={`${transaction.category}, ${income ? 'income' : 'expense'}, ${formatMoney(transaction.amount)}`}
-      accessibilityHint={onPress ? 'Tap to edit this transaction' : undefined}
+      accessibilityLabel={`${transaction.category}, ${goalContribution ? 'savings contribution' : income ? 'income' : 'expense'}, ${formatMoney(transaction.amount)}`}
+      accessibilityHint={onPress && !goalContribution && !transaction.savings_goal_id ? 'Tap to edit this transaction' : undefined}
       style={[styles.row, onPress && styles.pressableRow]}
     >
-      <View style={[styles.icon, { backgroundColor: `${tone}18` }]}>
-        <Ionicons name={categoryIcon} size={19} color={tone} />
+      <View style={[styles.icon, { backgroundColor: `${goalContribution ? theme.tint : tone}18` }]}>
+        <Ionicons name={categoryIcon} size={19} color={goalContribution ? theme.tint : tone} />
       </View>
       <View style={styles.details}>
-        <Text translate={!transaction.note} numberOfLines={1} style={[styles.category, { color: theme.text }]}>
+        <Text translate={!transaction.note || goalContribution} numberOfLines={1} style={[styles.category, { color: theme.text }]}>
           {displayTitle}
         </Text>
         <Text numberOfLines={1} style={[styles.caption, { color: theme.textSecondary }]}>
-          {transaction.category}
+          {timeInDetails ? `${transaction.category} · ${timeLabel ?? formatDate(transaction.transaction_date, settings.language)}` : transaction.category}
         </Text>
       </View>
       <View style={styles.amountBlock}>
-        <Text style={[styles.amount, { color: transfer ? theme.accent : income ? theme.success : theme.danger }]}>
+        <Text style={[styles.amount, { color: transfer ? theme.accent : goalContribution ? theme.tint : income ? theme.success : theme.danger }]}>
           {transfer ? '' : income ? '+' : '-'}{formatMoney(transaction.amount)}
         </Text>
-        <Text style={[styles.caption, { color: theme.textSecondary }]}>
-          {timeLabel ?? formatDate(transaction.transaction_date, settings.language)}
-        </Text>
+        {!timeInDetails && (
+          <Text style={[styles.caption, { color: theme.textSecondary }]}>
+            {timeLabel ?? formatDate(transaction.transaction_date, settings.language)}
+          </Text>
+        )}
       </View>
     </SmoothPressable>
   );

@@ -3,10 +3,11 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { releaseLocalConversation } from '@/ai/local';
 import { deleteAllAttachments } from '@/attachments/files';
-import { getDb } from '@/db/client';
+import { getDb, newId } from '@/db/client';
 import type { Conversation } from '@/db/conversations';
 import type { StoredBudget } from '@/db/budgets';
 import type { EmergencyFund, LedgerTransaction, UpcomingEvent } from '@/db/ledger';
+import type { SavingsGoal } from '@/db/savingsGoals';
 import { loadCustomEWallets, saveCustomEWallets } from '@/ledger/ewallets';
 import { loadLowCashPercent, saveLowCashPercent } from '@/ledger/lowCash';
 import type { MessageRow } from '@/db/messages';
@@ -14,7 +15,12 @@ import { DEFAULT_SETTINGS, type Settings } from '@/settings/storage';
 import { readFile, saveFile } from './file';
 
 export const BACKUP_FORMAT = 'offline-ai-starter-backup';
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 5;
+
+function localDateKey(timestamp: number): string {
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 /** Settings saved in a backup. The API key is never included. */
 type BackupSettings = Pick<
@@ -34,6 +40,7 @@ export interface BackupFile {
     emergencyFund: EmergencyFund;
     events: UpcomingEvent[];
     budgets?: StoredBudget[];
+    savingsGoals?: SavingsGoal[];
     lowCashPercent: number;
     customEWallets: string[];
   };
@@ -52,7 +59,7 @@ export async function exportBackup(settings: Settings): Promise<number> {
     image_uri: null,
     audio_uri: null,
   }));
-  const [transactions, emergencyFund, events, budgets, lowCashPercent, customEWallets] = await Promise.all([
+  const [transactions, emergencyFund, events, budgets, savingsGoals, lowCashPercent, customEWallets] = await Promise.all([
     db.getAllAsync<LedgerTransaction>(
       'SELECT * FROM ledger_transactions ORDER BY transaction_date DESC, created_at DESC'
     ),
@@ -64,6 +71,9 @@ export async function exportBackup(settings: Settings): Promise<number> {
     ),
     db.getAllAsync<StoredBudget>(
       'SELECT * FROM ledger_budgets ORDER BY month, category'
+    ),
+    db.getAllAsync<SavingsGoal>(
+      'SELECT * FROM ledger_savings_goals ORDER BY created_at DESC'
     ),
     loadLowCashPercent(),
     loadCustomEWallets(),
@@ -79,7 +89,7 @@ export async function exportBackup(settings: Settings): Promise<number> {
     settings: { provider, geminiModel, localBackend, systemPrompt, nickname, theme, language },
     conversations,
     messages,
-    ledger: { transactions, emergencyFund, events, budgets, lowCashPercent, customEWallets },
+    ledger: { transactions, emergencyFund, events, budgets, savingsGoals, lowCashPercent, customEWallets },
   };
   const date = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local
   await saveFile(
@@ -123,8 +133,24 @@ export function parseBackup(text: string): BackupFile {
     (b.version >= 2 && !isLedgerBackup(b.ledger))
     || (b.ledger !== undefined && !isLedgerBackup(b.ledger))
     || (b.version >= 3 && (!isObject(b.ledger) || !Array.isArray(b.ledger.budgets)))
+    || (b.version >= 4 && (!isObject(b.ledger) || !Array.isArray(b.ledger.savingsGoals)))
   ) {
     throw new Error('This backup contains invalid financial data.');
+  }
+  if (b.version >= 5 && b.ledger) {
+    const contributionTotals = new Map<string, number>();
+    for (const transaction of b.ledger.transactions) {
+      if (transaction.type !== 'savings' || !transaction.savings_goal_id) continue;
+      contributionTotals.set(
+        transaction.savings_goal_id,
+        (contributionTotals.get(transaction.savings_goal_id) ?? 0) + transaction.amount
+      );
+    }
+    if (b.ledger.savingsGoals?.some(
+      (goal) => Math.abs((contributionTotals.get(goal.id) ?? 0) - goal.saved_amount) > 0.005
+    )) {
+      throw new Error('This backup contains inconsistent savings-goal data.');
+    }
   }
   return b;
 }
@@ -162,7 +188,7 @@ function isLedgerBackup(value: unknown): value is NonNullable<BackupFile['ledger
   const validTransaction = (transaction: unknown) =>
     isObject(transaction)
     && typeof transaction.id === 'string'
-    && (transaction.type === 'income' || transaction.type === 'expense')
+    && (transaction.type === 'income' || transaction.type === 'expense' || transaction.type === 'savings')
     && typeof transaction.amount === 'number'
     && Number.isFinite(transaction.amount)
     && transaction.amount > 0
@@ -170,7 +196,10 @@ function isLedgerBackup(value: unknown): value is NonNullable<BackupFile['ledger
     && typeof transaction.note === 'string'
     && typeof transaction.transaction_date === 'string'
     && typeof transaction.created_at === 'number'
-    && Number.isFinite(transaction.created_at);
+    && Number.isFinite(transaction.created_at)
+    && (transaction.savings_goal_id === undefined
+      || transaction.savings_goal_id === null
+      || typeof transaction.savings_goal_id === 'string');
   const validEvent = (event: unknown) =>
     isObject(event)
     && typeof event.id === 'string'
@@ -193,14 +222,38 @@ function isLedgerBackup(value: unknown): value is NonNullable<BackupFile['ledger
     && budget.amount <= 1_000_000_000
     && typeof budget.updated_at === 'number'
     && Number.isFinite(budget.updated_at);
+  const validSavingsGoal = (goal: unknown) =>
+    isObject(goal)
+    && typeof goal.id === 'string'
+    && goal.id.length > 0
+    && typeof goal.name === 'string'
+    && goal.name.trim().length > 0
+    && goal.name.length <= 80
+    && typeof goal.target_amount === 'number'
+    && Number.isFinite(goal.target_amount)
+    && goal.target_amount > 0
+    && goal.target_amount <= 1_000_000_000
+    && typeof goal.saved_amount === 'number'
+    && Number.isFinite(goal.saved_amount)
+    && goal.saved_amount >= 0
+    && goal.saved_amount <= goal.target_amount
+    && typeof goal.created_at === 'number'
+    && Number.isFinite(goal.created_at);
   if (!value.transactions.every(validTransaction) || !value.events.every(validEvent)) return false;
-  if (value.budgets === undefined) return true;
-  if (!Array.isArray(value.budgets) || !value.budgets.every(validBudget)) return false;
-  const budgetKeys = value.budgets.map((budget) => {
-    if (!isObject(budget)) return '';
-    return `${budget.month}\u0000${budget.category}`;
-  });
-  return new Set(budgetKeys).size === budgetKeys.length;
+  if (value.budgets !== undefined) {
+    if (!Array.isArray(value.budgets) || !value.budgets.every(validBudget)) return false;
+    const budgetKeys = value.budgets.map((budget) => {
+      if (!isObject(budget)) return '';
+      return `${budget.month}\u0000${budget.category}`;
+    });
+    if (new Set(budgetKeys).size !== budgetKeys.length) return false;
+  }
+  if (value.savingsGoals !== undefined) {
+    if (!Array.isArray(value.savingsGoals) || !value.savingsGoals.every(validSavingsGoal)) return false;
+    const goalIds = value.savingsGoals.map((goal) => isObject(goal) ? goal.id : '');
+    if (new Set(goalIds).size !== goalIds.length) return false;
+  }
+  return true;
 }
 
 export async function pickBackup(): Promise<BackupFile | null> {
@@ -260,18 +313,20 @@ export async function restoreBackup(
       await db.runAsync('DELETE FROM ledger_transactions');
       await db.runAsync('DELETE FROM ledger_upcoming_events');
       await db.runAsync('DELETE FROM ledger_budgets');
+      await db.runAsync('DELETE FROM ledger_savings_goals');
       for (const transaction of backup.ledger.transactions) {
         await db.runAsync(
           `INSERT INTO ledger_transactions
-            (id, type, amount, category, note, transaction_date, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            (id, type, amount, category, note, transaction_date, created_at, savings_goal_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           transaction.id,
           transaction.type,
           transaction.amount,
           transaction.category,
           transaction.note,
           transaction.transaction_date,
-          transaction.created_at
+          transaction.created_at,
+          transaction.savings_goal_id ?? null
         );
       }
       for (const event of backup.ledger.events) {
@@ -295,6 +350,34 @@ export async function restoreBackup(
           budget.amount,
           budget.updated_at
         );
+      }
+      for (const goal of backup.ledger.savingsGoals ?? []) {
+        await db.runAsync(
+          `INSERT INTO ledger_savings_goals
+            (id, name, target_amount, saved_amount, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          goal.id,
+          goal.name,
+          goal.target_amount,
+          goal.saved_amount,
+          goal.created_at
+        );
+      }
+      if (backup.version < 5) {
+        for (const goal of backup.ledger.savingsGoals ?? []) {
+          if (goal.saved_amount <= 0) continue;
+          await db.runAsync(
+            `INSERT INTO ledger_transactions
+              (id, type, amount, category, note, transaction_date, created_at, savings_goal_id)
+             VALUES (?, 'savings', ?, 'Savings goal', ?, ?, ?, ?)`,
+            newId(),
+            goal.saved_amount,
+            goal.name,
+            localDateKey(goal.created_at),
+            goal.created_at,
+            goal.id
+          );
+        }
       }
       await db.runAsync(
         'UPDATE ledger_emergency_fund SET balance = ?, goal = ? WHERE id = 1',

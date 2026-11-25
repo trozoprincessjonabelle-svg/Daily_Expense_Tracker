@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import { PanResponder, StyleSheet, View } from 'react-native';
 import { LocalizedText as Text } from '@/components/LocalizedText';
@@ -78,9 +77,6 @@ export function LowCashAlertSettings() {
             Choose when to warn you that today’s available money is running low.
           </Text>
         </View>
-        <View style={[styles.alertIcon, { backgroundColor: `${theme.tint}18` }]}>
-          <Ionicons name="notifications-outline" size={18} color={theme.tint} />
-        </View>
       </View>
 
       <View style={styles.percentRow}>
@@ -151,7 +147,6 @@ const styles = StyleSheet.create({
   titleCopy: { flex: 1, gap: 5 },
   title: { fontSize: 17, fontWeight: '800' },
   description: { fontSize: 12, lineHeight: 17 },
-  alertIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   percentRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginTop: 1 },
   percent: { fontSize: 27, fontWeight: '800', letterSpacing: -0.5 },
   remaining: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },

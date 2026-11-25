@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LocalizedTextInput as TextInput } from '@/components/LocalizedTextInput';
 import { LocalizedText as Text } from '@/components/LocalizedText';
 import type { LedgerTransaction, TransactionInput, TransactionType } from '@/db/ledger';
@@ -36,9 +37,28 @@ const EXPENSE_CATEGORIES = [
   'Other',
   'Custom',
 ];
+export const QUICK_EXPENSE_CATEGORIES = [
+  'Food',
+  'Transport',
+  'School supplies',
+  ...EXPENSE_CATEGORIES.filter((category) => !['Food', 'Transport', 'School supplies', 'Savings', 'Other'].includes(category)),
+];
 const INCOME_CATEGORIES = ['Baon', 'Allowance', 'Part-time job', 'E-wallet', 'Other'];
-const ADD_MONEY_CATEGORIES = ['Cash', 'E-wallet', 'Emergency fund'];
+const ADD_MONEY_CATEGORIES = ['Cash'];
 const MAX_AMOUNT = 1_000_000_000;
+const QUICK_CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  Food: 'restaurant-outline',
+  Transport: 'bus-outline',
+  'School supplies': 'book-outline',
+  'Rent/Boarding': 'home-outline',
+  Bills: 'receipt-outline',
+  'Projects & printing': 'document-text-outline',
+  'Tuition & school fees': 'school-outline',
+  'Load & data': 'phone-portrait-outline',
+  'Personal care': 'heart-outline',
+  Entertainment: 'game-controller-outline',
+  Custom: 'add-circle-outline',
+};
 
 function localDate(): string {
   const now = new Date();
@@ -65,9 +85,11 @@ export function TransactionForm({
   visible,
   transaction,
   lockedType,
+  initialType,
   presentation = 'modal',
   closeOnSave = true,
   showCloseButton = true,
+  quickEntry = false,
   allowEmergencyFund = false,
   regularBalance,
   emergencyFundBalance,
@@ -77,9 +99,11 @@ export function TransactionForm({
   visible: boolean;
   transaction: LedgerTransaction | null;
   lockedType?: TransactionType;
+  initialType?: TransactionType;
   presentation?: 'modal' | 'inline';
   closeOnSave?: boolean;
   showCloseButton?: boolean;
+  quickEntry?: boolean;
   allowEmergencyFund?: boolean;
   regularBalance?: number;
   emergencyFundBalance?: number;
@@ -92,12 +116,16 @@ export function TransactionForm({
 }) {
   const theme = useTheme();
   const { settings } = useSettings();
-  const [type, setType] = useState<TransactionType>(transaction?.type ?? lockedType ?? 'income');
+  const insets = useSafeAreaInsets();
+  const [type, setType] = useState<TransactionType>(
+    transaction?.type ?? initialType ?? lockedType ?? 'income'
+  );
   const [amount, setAmount] = useState(transaction ? String(transaction.amount) : '');
   const [category, setCategory] = useState(
     transaction?.type === 'expense' && transaction.category && !EXPENSE_CATEGORIES.includes(transaction.category)
       ? 'Custom'
-      : transaction?.category ?? ''
+      : transaction?.category
+        ?? (quickEntry ? ((initialType ?? lockedType) === 'expense' ? 'Food' : 'Cash') : '')
   );
   const [paymentSource, setPaymentSource] = useState<'regular' | 'emergency'>('regular');
   const [date, setDate] = useState(transaction?.transaction_date ?? localDate());
@@ -117,8 +145,8 @@ export function TransactionForm({
   const [showIosDatePicker, setShowIosDatePicker] = useState(false);
 
   const categories = type === 'expense'
-    ? EXPENSE_CATEGORIES
-    : lockedType === 'income'
+    ? quickEntry ? QUICK_EXPENSE_CATEGORIES : EXPENSE_CATEGORIES
+    : quickEntry || lockedType === 'income'
       ? ADD_MONEY_CATEGORIES
       : INCOME_CATEGORIES;
   const eWalletOptions = [...DEFAULT_EWALLETS, ...customWallets];
@@ -143,6 +171,7 @@ export function TransactionForm({
     !exceedsEmergencyBalance;
 
   React.useEffect(() => {
+    if (quickEntry) return;
     let active = true;
     loadCustomEWallets()
       .then((wallets) => {
@@ -162,14 +191,26 @@ export function TransactionForm({
       ))
       .finally(() => { if (active) setLoadingWallets(false); });
     return () => { active = false; };
-  }, [transaction]);
+  }, [quickEntry, transaction]);
 
   const chooseType = (nextType: TransactionType) => {
     if (nextType === type) return;
     setType(nextType);
-    setCategory('');
+    setCategory(quickEntry ? (nextType === 'expense' ? 'Food' : 'Cash') : '');
     setSelectedWallet(null);
     setPaymentSource('regular');
+  };
+
+  const appendAmountKey = (key: string) => {
+    setAmount((current) => {
+      if (key === 'backspace') return current.slice(0, -1);
+      if (key === '.') {
+        if (current.includes('.')) return current;
+        return current ? `${current}.` : '0.';
+      }
+      if (current.length >= 16) return current;
+      return current === '0' ? key : `${current}${key}`;
+    });
   };
 
   const addWallet = async () => {
@@ -264,7 +305,7 @@ export function TransactionForm({
         onClose();
       } else {
         setAmount('');
-        setCategory('');
+        setCategory(quickEntry ? (type === 'expense' ? 'Food' : 'Cash') : '');
         setNote('');
         setSelectedWallet(null);
         setWalletNameDraft('');
@@ -280,6 +321,165 @@ export function TransactionForm({
       setSaving(false);
     }
   };
+
+  const quickEntryForm = (
+    <View style={[
+      styles.quickSheet,
+      { backgroundColor: theme.background, paddingBottom: insets.bottom + 84 },
+    ]}>
+      <View style={styles.quickHeader}>
+        <View>
+          <Text translate={false} style={[styles.eyebrow, { color: theme.textSecondary }]}>EXPENSE TRACKER</Text>
+          <Text style={[styles.title, { color: theme.text }]}>
+            New {type === 'expense' ? 'expense' : 'income'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={[styles.quickTypeSwitch, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        {(['expense', 'income'] as const).map((option) => (
+          <SmoothPressable
+            key={option}
+            accessibilityRole="button"
+            accessibilityState={{ selected: type === option }}
+            onPress={() => chooseType(option)}
+            style={[
+              styles.quickTypeOption,
+              type === option && {
+                backgroundColor: theme.buttonPrimary,
+                borderColor: theme.buttonPrimary,
+              },
+            ]}
+          >
+            <Text style={[styles.typeText, { color: type === option ? '#FFFFFF' : theme.textSecondary }]}>
+              {option === 'expense' ? 'Expense' : 'Income'}
+            </Text>
+          </SmoothPressable>
+        ))}
+      </View>
+
+      <View style={styles.quickAmount}>
+        <Text style={[styles.quickAmountText, { color: theme.buttonPrimary }]}>
+          ₱{amount || '0'}
+        </Text>
+      </View>
+
+      {type === 'expense' && (
+        <>
+          <View style={styles.quickCategories}>
+            {categories.map((item) => {
+              const selected = category === item;
+              return (
+                <SmoothPressable
+                  key={item}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => setCategory(item)}
+                  style={[
+                    styles.quickCategory,
+                    {
+                      backgroundColor: selected ? theme.buttonPrimary : theme.card,
+                      borderColor: selected ? theme.buttonPrimary : theme.border,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={QUICK_CATEGORY_ICONS[item]}
+                    size={14}
+                    color={selected ? '#FFFFFF' : theme.textSecondary}
+                  />
+                  <Text style={{ color: selected ? '#FFFFFF' : theme.text, fontSize: 12, fontWeight: '600' }}>
+                    {item === 'School supplies' ? 'School' : item}
+                  </Text>
+                </SmoothPressable>
+              );
+            })}
+          </View>
+          {category === 'Custom' && (
+            <TextInput
+              accessibilityLabel="Custom category"
+              value={customCategory}
+              onChangeText={setCustomCategory}
+              placeholder="Enter category name"
+              placeholderTextColor={theme.textSecondary}
+              maxLength={40}
+              style={[styles.input, styles.quickCustomCategory, { color: theme.text, backgroundColor: theme.card, borderColor: theme.border }]}
+            />
+          )}
+        </>
+      )}
+
+      <View style={styles.quickDetails}>
+        <TextInput
+          accessibilityLabel="Optional description"
+          value={note}
+          onChangeText={setNote}
+          placeholder={type === 'income' ? 'Note (e.g. allowance)' : 'Note (e.g. Jollibee)'}
+          placeholderTextColor={theme.textSecondary}
+          maxLength={120}
+          style={[styles.quickNote, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
+        />
+        <SmoothPressable
+          accessibilityRole="button"
+          accessibilityLabel="Transaction date"
+          onPress={() => {
+            if (Platform.OS === 'android') openDatePicker();
+            else setShowIosDatePicker(true);
+          }}
+          style={[styles.quickDate, { backgroundColor: theme.background, borderColor: theme.border }]}
+        >
+          <Text style={[styles.quickDateText, { color: theme.text }]}>{formatDate(date, settings.language)}</Text>
+          <Ionicons name="calendar-outline" size={15} color={theme.tint} />
+        </SmoothPressable>
+      </View>
+      {Platform.OS !== 'android' && showIosDatePicker && (
+        <DateTimePicker
+          value={dateFromKey(date)}
+          mode="date"
+          display="inline"
+          onChange={(_event, selectedDate) => {
+            if (selectedDate) setDate(dateToKey(selectedDate));
+          }}
+        />
+      )}
+
+      <View style={styles.quickKeypad}>
+        {[
+          ['1', '2', '3'],
+          ['4', '5', '6'],
+          ['7', '8', '9'],
+          ['.', '0', 'backspace'],
+        ].map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.quickKeyRow}>
+            {row.map((key) => (
+              <SmoothPressable
+                key={key}
+                accessibilityRole="button"
+                accessibilityLabel={key === 'backspace' ? 'Delete last digit' : key}
+                onPress={() => appendAmountKey(key)}
+                style={styles.quickKey}
+              >
+                {key === 'backspace' ? (
+                  <Ionicons name="backspace-outline" size={22} color={theme.textSecondary} />
+                ) : (
+                  <Text style={[styles.quickKeyText, { color: theme.text }]}>{key}</Text>
+                )}
+              </SmoothPressable>
+            ))}
+          </View>
+        ))}
+      </View>
+
+      <Button
+        label="Save"
+        icon="checkmark"
+        loading={saving}
+        disabled={!canSubmit}
+        onPress={() => void submit()}
+        style={styles.quickSubmit}
+      />
+    </View>
+  );
 
   const formSheet = (
         <View style={[
@@ -566,6 +766,17 @@ export function TransactionForm({
         </View>
   );
 
+  if (quickEntry) {
+    return (
+      <KeyboardAvoidingView
+        style={styles.quickContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {quickEntryForm}
+      </KeyboardAvoidingView>
+    );
+  }
+
   if (presentation === 'inline') {
     return (
       <KeyboardAvoidingView
@@ -598,6 +809,25 @@ export function TransactionForm({
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)' },
   inlineContainer: { height: 460, minHeight: 460 },
+  quickContainer: { flex: 1 },
+  quickSheet: { flex: 1, paddingHorizontal: 18, paddingTop: 14 },
+  quickHeader: { minHeight: 43, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  quickTypeSwitch: { flexDirection: 'row', borderRadius: 13, borderWidth: StyleSheet.hairlineWidth, padding: 3, marginBottom: 7 },
+  quickTypeOption: { flex: 1, minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  quickAmount: { minHeight: 69, alignItems: 'center', justifyContent: 'center' },
+  quickAmountText: { fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
+  quickCategories: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingVertical: 5 },
+  quickCategory: { minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
+  quickCustomCategory: { minHeight: 39, marginTop: 4 },
+  quickDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 5 },
+  quickNote: { flex: 1, minWidth: 0, height: 42, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 11, fontSize: 12 },
+  quickDate: { minWidth: 100, maxWidth: 132, height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, paddingHorizontal: 9, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
+  quickDateText: { fontSize: 11, flexShrink: 1 },
+  quickKeypad: { flex: 1, maxHeight: 220, justifyContent: 'space-evenly', paddingVertical: 5 },
+  quickKeyRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  quickKey: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center' },
+  quickKeyText: { fontSize: 19, fontWeight: '700' },
+  quickSubmit: { minHeight: 46, marginTop: 2, marginBottom: 2, borderRadius: 14 },
   sheet: { maxHeight: '92%', borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 30 },
   inlineSheet: { height: 460, maxHeight: 460, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 16 },
   inlineScroll: { flex: 1, minHeight: 0 },

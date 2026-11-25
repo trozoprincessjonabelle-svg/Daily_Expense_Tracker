@@ -4,7 +4,7 @@ import { useTranslate } from '@/settings/SettingsContext';
 
 type LocalizedTextProps = TextProps & { translate?: boolean };
 
-export const LocalizedText = React.forwardRef<NativeText, LocalizedTextProps>(
+export const LocalizedText = React.forwardRef<React.ComponentRef<typeof NativeText>, LocalizedTextProps>(
   function LocalizedText({ children, translate = true, ...props }, ref) {
     const t = useTranslate();
     const translatedChildren = translate

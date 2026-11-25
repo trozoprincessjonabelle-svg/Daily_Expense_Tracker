@@ -25,12 +25,8 @@ const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_messages_conversation
     ON messages (conversation_id, created_at);
   `,
-  `
-  ALTER TABLE messages ADD COLUMN image_uri TEXT;
-  `,
-  `
-  ALTER TABLE messages ADD COLUMN audio_uri TEXT;
-  `,
+  `SELECT 1;`,
+  `SELECT 1;`,
   `
   CREATE TABLE IF NOT EXISTS ledger_transactions (
     id TEXT PRIMARY KEY,
@@ -77,10 +73,71 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (month, category)
   );
   `,
+  `
+  CREATE TABLE IF NOT EXISTS ledger_savings_goals (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    target_amount REAL NOT NULL CHECK (target_amount > 0),
+    saved_amount REAL NOT NULL DEFAULT 0 CHECK (saved_amount >= 0),
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_ledger_savings_goals_created
+    ON ledger_savings_goals (created_at DESC);
+  `,
+  `
+  CREATE TABLE ledger_transactions_new (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL CHECK (type IN ('expense', 'income', 'savings')),
+    amount REAL NOT NULL CHECK (amount > 0),
+    category TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    transaction_date TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    savings_goal_id TEXT
+  );
+  INSERT INTO ledger_transactions_new
+    (id, type, amount, category, note, transaction_date, created_at, savings_goal_id)
+  SELECT id, type, amount, category, note, transaction_date, created_at, NULL
+  FROM ledger_transactions;
+  DROP TABLE ledger_transactions;
+  ALTER TABLE ledger_transactions_new RENAME TO ledger_transactions;
+  CREATE INDEX idx_ledger_transactions_date
+    ON ledger_transactions (transaction_date DESC, created_at DESC);
+  INSERT INTO ledger_transactions
+    (id, type, amount, category, note, transaction_date, created_at, savings_goal_id)
+  SELECT
+    lower(hex(randomblob(16))),
+    'savings',
+    saved_amount,
+    'Savings goal',
+    name,
+    date(created_at / 1000, 'unixepoch', 'localtime'),
+    created_at,
+    id
+  FROM ledger_savings_goals
+  WHERE saved_amount > 0;
+  `,
 ];
 
 export function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function ensureMessageColumns(database: SQLite.SQLiteDatabase): Promise<void> {
+  const table = await database.getFirstAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'messages'"
+  );
+  if (!table) return;
+  const columns = await database.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(messages)'
+  );
+  const names = new Set(columns.map((column) => column.name));
+  if (!names.has('image_uri')) {
+    await database.execAsync('ALTER TABLE messages ADD COLUMN image_uri TEXT');
+  }
+  if (!names.has('audio_uri')) {
+    await database.execAsync('ALTER TABLE messages ADD COLUMN audio_uri TEXT');
+  }
 }
 
 async function migrate(database: SQLite.SQLiteDatabase): Promise<void> {
@@ -88,10 +145,14 @@ async function migrate(database: SQLite.SQLiteDatabase): Promise<void> {
     'PRAGMA user_version'
   );
   const version = row?.user_version ?? 0;
-  for (let i = version; i < MIGRATIONS.length; i++) {
-    await database.execAsync(MIGRATIONS[i]);
-    await database.execAsync(`PRAGMA user_version = ${i + 1}`);
-  }
+  await database.withTransactionAsync(async () => {
+    await ensureMessageColumns(database);
+    for (let i = version; i < MIGRATIONS.length; i++) {
+      await database.execAsync(MIGRATIONS[i]);
+      if (i === 0) await ensureMessageColumns(database);
+      await database.execAsync(`PRAGMA user_version = ${i + 1}`);
+    }
+  });
 }
 
 /** Open (and migrate) the database. Safe to call from anywhere; runs once. */
@@ -104,7 +165,10 @@ export function getDb(): Promise<SQLite.SQLiteDatabase> {
       await migrate(database);
       db = database;
       return database;
-    })();
+    })().catch((error: unknown) => {
+      initPromise = null;
+      throw error;
+    });
   }
   return initPromise;
 }

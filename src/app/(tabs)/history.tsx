@@ -5,37 +5,55 @@ import { LocalizedTextInput as TextInput } from '@/components/LocalizedTextInput
 import { LocalizedText as Text } from '@/components/LocalizedText';
 import { pickTransactionsCsv, exportTransactionsCsv } from '@/backup/ledgerCsv';
 import { TransactionRow } from '@/components/ledger/TransactionRow';
-import { TransactionForm } from '@/components/ledger/TransactionForm';
+import { QUICK_EXPENSE_CATEGORIES, TransactionForm } from '@/components/ledger/TransactionForm';
 import { isEmergencyFundMovement, type LedgerTransaction } from '@/db/ledger';
 import { useLedgerTransactions } from '@/hooks/useLedgerTransactions';
-import { formatLongDate, formatTime } from '@/ledger/format';
+import { formatMoney, formatTime } from '@/ledger/format';
 import { useSettings } from '@/settings/SettingsContext';
 import { useTheme } from '@/theme';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import { confirmAction, confirmActionWithText } from '@/utils/confirm';
 
-type Filter = 'all' | 'expense' | 'income' | 'transfers';
+type Filter = 'all' | 'expense' | 'income' | 'savings';
+const INCOME_CATEGORY_FILTERS = ['Baon', 'Allowance', 'Part-time job', 'Other'];
 
 export default function HistoryScreen() {
   const theme = useTheme();
   const { settings } = useSettings();
-  const { transactions, loading, save, clear, restore } = useLedgerTransactions();
+  const { transactions, loading, save, remove, clear, restore } = useLedgerTransactions();
   const [filter, setFilter] = useState<Filter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(50);
   const [busy, setBusy] = useState(false);
+  const [toolsVisible, setToolsVisible] = useState(false);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<LedgerTransaction | null>(null);
+  const categoryOptions = useMemo(() => {
+    const matchingType = transactions.filter((item) => filter === 'all' || item.type === filter);
+    const configuredCategories = [...new Set([
+      ...(filter === 'all' || filter === 'expense'
+        ? QUICK_EXPENSE_CATEGORIES.filter((category) => category !== 'Custom')
+        : []),
+      ...(filter === 'all' || filter === 'income' ? INCOME_CATEGORY_FILTERS : []),
+    ])];
+    const configuredSet = new Set(configuredCategories);
+    const additionalCategories = [...new Set(matchingType.map((item) => item.category))]
+      .filter((category) => category !== 'Cash' && !configuredSet.has(category))
+      .sort((left, right) => left.localeCompare(right));
+    return [...configuredCategories, ...additionalCategories];
+  }, [filter, transactions]);
   const allFiltered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return transactions.filter((item) => {
       const matchesType = filter === 'all'
-        || (filter === 'transfers' ? isEmergencyFundMovement(item) : item.type === filter);
+        || item.type === filter;
+      const matchesCategory = categoryFilter === null || item.category === categoryFilter;
       const matchesText = !query || [item.category, item.note, item.transaction_date]
         .some((value) => value.toLowerCase().includes(query));
-      return matchesType && matchesText;
+      return matchesType && matchesCategory && matchesText;
     });
-  }, [filter, search, transactions]);
+  }, [categoryFilter, filter, search, transactions]);
   const filtered = useMemo(
     () => allFiltered.slice(0, visibleCount),
     [allFiltered, visibleCount]
@@ -74,7 +92,7 @@ export default function HistoryScreen() {
       if (!imported) return;
       confirmAction(
         'Restore transaction history?',
-        `This replaces your current ${transactions.length} transaction${transactions.length === 1 ? '' : 's'} with ${imported.length} transaction${imported.length === 1 ? '' : 's'} from the selected CSV and adjusts the emergency fund for imported fund activity. Your fund goal and upcoming events remain unchanged.`,
+        `This replaces your current ${transactions.length} transaction${transactions.length === 1 ? '' : 's'} with ${imported.length} transaction${imported.length === 1 ? '' : 's'} from the selected CSV and adjusts the emergency fund and savings goal progress for imported activity. Upcoming events remain unchanged.`,
         'Restore',
         async () => {
           setBusy(true);
@@ -97,7 +115,7 @@ export default function HistoryScreen() {
   const clearHistory = () => {
     confirmActionWithText(
       'Clear transaction history?',
-      `This permanently deletes all ${transactions.length} transactions and resets your emergency fund balance and goal. Events will remain. This cannot be undone.`,
+      `This permanently deletes all ${transactions.length} transactions, resets your emergency fund, and clears savings-goal progress. Events and goal targets will remain. This cannot be undone.`,
       'Delete',
       'DELETE',
       async () => {
@@ -115,27 +133,45 @@ export default function HistoryScreen() {
     );
   };
 
+  const deleteHistoryTransaction = (transaction: LedgerTransaction) => {
+    const fundMovement = isEmergencyFundMovement(transaction);
+    confirmAction(
+      'Are you sure you want to delete this transaction?',
+      `${transaction.category} · ${formatMoney(transaction.amount)}. ${transaction.type === 'savings' ? 'Deleting this returns the amount to your available balance and reduces the goal progress. ' : fundMovement ? 'This will also update your emergency fund balance. ' : ''}This cannot be undone.`,
+      'Delete',
+      () => remove(transaction.id)
+    );
+  };
+
   return (
     <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <View>
-          <Text style={[styles.title, { color: theme.text }]}>History</Text>
-          <Text style={{ color: theme.textSecondary, fontSize: 12.5, marginTop: 2 }}>All your money entries in one place</Text>
-        </View>
+        <Text style={[styles.title, { color: theme.text }]}>Transactions</Text>
+        <SmoothPressable
+          accessibilityRole="button"
+          accessibilityLabel="Backup and history tools"
+          accessibilityState={{ expanded: toolsVisible }}
+          onPress={() => setToolsVisible((visible) => !visible)}
+          style={[styles.toolsToggle, { backgroundColor: theme.card, borderColor: theme.border }]}
+        >
+          <Ionicons name="ellipsis-horizontal" size={19} color={theme.tint} />
+        </SmoothPressable>
       </View>
-      <View style={[styles.tools, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.toolsTitle, { color: theme.textSecondary }]}>BACKUP & TOOLS</Text>
-        <View style={styles.toolButtons}>
-          <ToolButton icon="download-outline" label="Export CSV" disabled={busy || loading} onPress={() => void exportCsv()} color={theme.tint} />
-          <ToolButton icon="cloud-upload-outline" label="Restore" disabled={busy || loading} onPress={() => void restoreCsv()} color={theme.tint} />
-          <ToolButton icon="trash-outline" label="Clear" disabled={busy || loading || transactions.length === 0} onPress={clearHistory} color={theme.danger} />
+      {toolsVisible && (
+        <View style={[styles.tools, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.toolsTitle, { color: theme.textSecondary }]}>BACKUP & TOOLS</Text>
+          <View style={styles.toolButtons}>
+            <ToolButton icon="download-outline" label="Export CSV" disabled={busy || loading} onPress={() => void exportCsv()} color={theme.tint} />
+            <ToolButton icon="cloud-upload-outline" label="Restore" disabled={busy || loading} onPress={() => void restoreCsv()} color={theme.tint} />
+            <ToolButton icon="trash-outline" label="Clear" disabled={busy || loading || transactions.length === 0} onPress={clearHistory} color={theme.danger} />
+          </View>
+          {busy && <Text style={[styles.toolStatus, { color: theme.textSecondary }]}>Working…</Text>}
+          {status && <Text style={[styles.toolStatus, { color: status.error ? theme.danger : theme.success }]}>{status.text}</Text>}
+          <Text style={[styles.toolHelp, { color: theme.textSecondary }]}>
+            Restore replaces entries from a CSV (date, type, category, amount, note).
+          </Text>
         </View>
-        {busy && <Text style={[styles.toolStatus, { color: theme.textSecondary }]}>Working…</Text>}
-        {status && <Text style={[styles.toolStatus, { color: status.error ? theme.danger : theme.success }]}>{status.text}</Text>}
-        <Text style={[styles.toolHelp, { color: theme.textSecondary }]}>
-          Restore replaces entries from a CSV (date, type, category, amount, note).
-        </Text>
-      </View>
+      )}
       <View style={[styles.search, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <Ionicons name="search-outline" size={17} color={theme.textSecondary} />
         <TextInput
@@ -156,38 +192,56 @@ export default function HistoryScreen() {
         )}
       </View>
       <View style={styles.filterSection}>
-        <View style={styles.filters}>
-        {(['all', 'income', 'expense', 'transfers'] as const).map((item) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+          {(['all', 'expense', 'income', 'savings'] as const).map((item) => (
+            <SmoothPressable
+              key={item}
+              onPress={() => {
+                setFilter(item);
+                setCategoryFilter(null);
+                setVisibleCount(50);
+              }}
+              style={[styles.filter, { backgroundColor: filter === item ? theme.buttonPrimary : theme.card, borderColor: filter === item ? theme.buttonPrimary : theme.border }]}
+            >
+              <Text style={{ color: filter === item ? '#FFFFFF' : theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                {item === 'all'
+                  ? 'All'
+                  : item === 'expense'
+                    ? 'Expenses'
+                    : item === 'income'
+                      ? 'Income'
+                      : 'Savings'}
+              </Text>
+            </SmoothPressable>
+          ))}
+        </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           <SmoothPressable
-            key={item}
             onPress={() => {
-              setFilter(item);
+              setCategoryFilter(null);
               setVisibleCount(50);
             }}
-            style={[styles.filter, { backgroundColor: filter === item ? theme.buttonPrimary : theme.card, borderColor: filter === item ? theme.buttonPrimary : theme.border }]}
+            style={[styles.filter, { backgroundColor: categoryFilter === null ? theme.buttonPrimary : theme.card, borderColor: categoryFilter === null ? theme.buttonPrimary : theme.border }]}
           >
-            <Text style={{ color: filter === item ? '#FFFFFF' : theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
-              {item === 'all'
-                ? 'All'
-                : item === 'expense'
-                  ? 'Expenses'
-                  : item === 'income'
-                    ? 'Income'
-                    : 'Transfers'}
+            <Text style={{ color: categoryFilter === null ? '#FFFFFF' : theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+              All categories
             </Text>
           </SmoothPressable>
-        ))}
-        {visibleCount < allFiltered.length && (
-          <SmoothPressable
-            accessibilityRole="button"
-            accessibilityLabel="Load more transactions"
-            onPress={() => setVisibleCount((count) => count + 50)}
-            style={[styles.loadMore, { backgroundColor: theme.buttonSecondary }]}
-          >
-            <Text style={{ color: theme.tint, fontSize: 12, fontWeight: '700' }}>+50 more</Text>
-          </SmoothPressable>
-        )}
-        </View>
+          {categoryOptions.map((category) => (
+            <SmoothPressable
+              key={category}
+              onPress={() => {
+                setCategoryFilter(category);
+                setVisibleCount(50);
+              }}
+              style={[styles.filter, { backgroundColor: categoryFilter === category ? theme.buttonPrimary : theme.card, borderColor: categoryFilter === category ? theme.buttonPrimary : theme.border }]}
+            >
+              <Text style={{ color: categoryFilter === category ? '#FFFFFF' : theme.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                {category === 'School supplies' ? 'School' : category}
+              </Text>
+            </SmoothPressable>
+          ))}
+        </ScrollView>
       </View>
       {filtered.length === 0 ? (
         <View style={[styles.empty, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -209,30 +263,80 @@ export default function HistoryScreen() {
           </View>
           {groupedTransactions.map(([date, dateTransactions]) => (
             <View key={date} style={styles.dateGroup}>
-              <Text style={[styles.dateHeading, { color: theme.textSecondary }]}>
-                {formatLongDate(date, settings.language)}
-              </Text>
+              <View style={styles.dateHeadingRow}>
+                <Text style={[styles.dateHeading, { color: theme.textSecondary }]}>
+                  {dateGroupLabel(date, settings.language)}
+                </Text>
+                <Text style={[styles.dateTotal, { color: theme.textSecondary }]}>
+                  {formatSignedMoney(dateTransactions.reduce(
+                    (total, transaction) => total + (transaction.type === 'income' ? transaction.amount : -transaction.amount),
+                    0
+                  ))}
+                </Text>
+              </View>
               <View style={[styles.list, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 {dateTransactions.map((transaction, index) => (
                   <View
                     key={transaction.id}
                     style={[
+                      styles.historyRow,
                       index < dateTransactions.length - 1 && {
                         borderBottomColor: theme.border,
                         borderBottomWidth: StyleSheet.hairlineWidth,
                       },
                     ]}
                   >
-                    <TransactionRow
-                      transaction={transaction}
-                      onPress={!isEmergencyFundMovement(transaction) ? () => setEditingTransaction(transaction) : undefined}
-                      timeLabel={formatTime(transaction.created_at, settings.language)}
-                    />
+                    <View style={styles.historyRowContent}>
+                      <TransactionRow
+                        transaction={transaction}
+                        onPress={!isEmergencyFundMovement(transaction)
+                          && transaction.type !== 'savings'
+                          && !transaction.savings_goal_id
+                          ? () => setEditingTransaction(transaction)
+                          : undefined}
+                        timeLabel={formatTime(transaction.created_at, settings.language)}
+                        timeInDetails
+                      />
+                    </View>
+                    <View style={styles.historyRowActions}>
+                      {!isEmergencyFundMovement(transaction)
+                        && transaction.type !== 'savings'
+                        && !transaction.savings_goal_id && (
+                        <SmoothPressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Edit ${transaction.category} transaction`}
+                          disabled={loading || busy}
+                          onPress={() => setEditingTransaction(transaction)}
+                          style={[styles.historyAction, { backgroundColor: theme.buttonSecondary }]}
+                        >
+                          <Ionicons name="create-outline" size={17} color={theme.tint} />
+                        </SmoothPressable>
+                      )}
+                      <SmoothPressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Delete ${transaction.category} transaction`}
+                        disabled={loading || busy}
+                        onPress={() => deleteHistoryTransaction(transaction)}
+                        style={[styles.historyAction, { backgroundColor: theme.dangerSurface }]}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={theme.danger} />
+                      </SmoothPressable>
+                    </View>
                   </View>
                 ))}
               </View>
             </View>
           ))}
+          {visibleCount < allFiltered.length && (
+            <SmoothPressable
+              accessibilityRole="button"
+              accessibilityLabel="Load more transactions"
+              onPress={() => setVisibleCount((count) => count + 50)}
+              style={[styles.loadMore, { backgroundColor: theme.buttonSecondary }]}
+            >
+              <Text style={{ color: theme.tint, fontSize: 12, fontWeight: '700' }}>+50 more</Text>
+            </SmoothPressable>
+          )}
         </View>
       )}
       {editingTransaction && (
@@ -246,6 +350,29 @@ export default function HistoryScreen() {
       )}
     </ScrollView>
   );
+}
+
+function dateGroupLabel(dateKey: string, language: 'en' | 'tl'): string {
+  const date = new Date(`${dateKey}T12:00:00`);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const keyForDate = (value: Date) => (
+    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+  );
+
+  if (dateKey === keyForDate(today)) return language === 'tl' ? 'Ngayon' : 'Today';
+  if (dateKey === keyForDate(yesterday)) return language === 'tl' ? 'Kahapon' : 'Yesterday';
+  return date.toLocaleDateString(language === 'tl' ? 'fil-PH' : 'en-PH', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatSignedMoney(amount: number): string {
+  return `${amount < 0 ? '-' : amount > 0 ? '+' : ''}${formatMoney(Math.abs(amount))}`;
 }
 
 function ToolButton({
@@ -280,6 +407,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 24, gap: 14 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 22, fontWeight: '700', letterSpacing: -0.4 },
+  toolsToggle: { width: 38, height: 38, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   tools: { padding: 13, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, gap: 8 },
   toolsTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
   toolButtons: { flexDirection: 'row', gap: 7 },
@@ -288,16 +416,22 @@ const styles = StyleSheet.create({
   toolStatus: { fontSize: 12, lineHeight: 17 },
   toolHelp: { fontSize: 11, lineHeight: 15 },
   search: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  filterSection: { gap: 6 },
-  filters: { flexDirection: 'row', gap: 6 },
-  filter: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth },
+  filterSection: { gap: 8 },
+  filters: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 4 },
+  filter: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth },
   loadMore: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   listSection: { gap: 10 },
   dateGroup: { gap: 6 },
-  dateHeading: { fontSize: 12.5, fontWeight: '700', paddingHorizontal: 2 },
+  dateHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
+  dateHeading: { fontSize: 12.5, fontWeight: '700' },
+  dateTotal: { fontSize: 11.5, fontWeight: '600' },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   listTitle: { fontSize: 14.5, fontWeight: '700' },
   list: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
+  historyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  historyRowContent: { flex: 1, minWidth: 0 },
+  historyRowActions: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  historyAction: { width: 31, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   empty: { padding: 22, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', gap: 6 },
   emptyIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
   emptyTitle: { fontSize: 14.5, fontWeight: '700', textAlign: 'center' },
