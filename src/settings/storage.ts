@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 export type ProviderId = 'cloud' | 'local';
 export type LocalBackend = 'auto' | 'npu' | 'gpu' | 'cpu';
 export type ThemeMode = 'light' | 'dark';
+export type AppLanguage = 'en' | 'tl';
 
 const KEYS = {
   provider: 'provider',
@@ -14,6 +15,7 @@ const KEYS = {
   nickname: 'nickname',
   onboarded: 'onboarded',
   theme: 'theme',
+  language: 'language',
   modelResumeData: 'modelResumeData',
 } as const;
 
@@ -32,21 +34,23 @@ export interface Settings {
   nickname: string;
   onboarded: boolean;
   theme: ThemeMode;
+  language: AppLanguage;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  provider: 'cloud',
+  provider: 'local',
   geminiApiKey: '',
   geminiModel: DEFAULT_GEMINI_MODEL,
   localBackend: 'auto',
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   nickname: '',
   onboarded: false,
-  theme: 'light',
+  theme: 'dark',
+  language: 'en',
 };
 
 export async function loadSettings(): Promise<Settings> {
-  const [provider, geminiModel, localBackend, systemPrompt, nickname, onboarded, theme, apiKey] =
+  const [provider, geminiModel, localBackend, systemPrompt, nickname, onboarded, theme, language, apiKey] =
     await Promise.all([
       Storage.getItem(KEYS.provider),
       Storage.getItem(KEYS.geminiModel),
@@ -55,12 +59,13 @@ export async function loadSettings(): Promise<Settings> {
       Storage.getItem(KEYS.nickname),
       Storage.getItem(KEYS.onboarded),
       Storage.getItem(KEYS.theme),
+      Storage.getItem(KEYS.language),
       Platform.OS === 'web'
         ? Promise.resolve(typeof sessionStorage === 'undefined' ? null : sessionStorage.getItem(API_KEY_KEY))
         : SecureStore.getItemAsync(API_KEY_KEY),
     ]);
   return {
-    provider: provider === 'local' ? 'local' : 'cloud',
+    provider: provider === 'cloud' ? 'cloud' : 'local',
     geminiApiKey: apiKey ?? '',
     geminiModel: geminiModel || DEFAULT_GEMINI_MODEL,
     localBackend:
@@ -71,6 +76,7 @@ export async function loadSettings(): Promise<Settings> {
     nickname: nickname ?? '',
     onboarded: onboarded === 'true',
     theme: theme === 'dark' ? 'dark' : 'light',
+    language: language === 'tl' ? 'tl' : 'en',
   };
 }
 
@@ -106,6 +112,8 @@ export async function saveSetting<K extends keyof Settings>(
       return Storage.setItemAsync(KEYS.onboarded, String(value));
     case 'theme':
       return Storage.setItemAsync(KEYS.theme, value as string);
+    case 'language':
+      return Storage.setItemAsync(KEYS.language, value as string);
   }
 }
 
@@ -119,9 +127,12 @@ export async function resetSettings(): Promise<void> {
 /** System prompt sent to the AI, personalised with the user's nickname. */
 export function buildSystemPrompt(settings: Settings): string {
   const name = settings.nickname.trim();
-  return name
+  const prompt = name
     ? `${settings.systemPrompt}\nThe user's name is ${name}.`.trim()
     : settings.systemPrompt;
+  return settings.language === 'tl'
+    ? `${prompt}\nRespond in Filipino (Tagalog).`
+    : prompt;
 }
 
 export async function getModelResumeData(): Promise<string | null> {

@@ -1,10 +1,13 @@
-# Offline AI Starter
+# Expense Tracker
 
-A small, readable Android chatbot app you can build on. It is
-**offline-first**: every conversation lives in a local SQLite database, so
-browsing, creating, and reading chats works with no network at all.
+An offline-first student budget app for Android and the web. Transactions, emergency
+fund activity, upcoming events, monthly budgets, and chat history are stored
+locally in SQLite. Home tracks day-to-day cash flow; Calendar manages the
+emergency fund and events; AI combines Insights and the AI Chatbot.
 
-Two AI providers are included and can be switched in **Chat settings** (gear icon in the chat):
+The AI Chatbot recommends possible monthly and category budgets based on the
+saved budget plan and aggregate ledger data. Its configured provider is selected
+in **Chat settings**:
 
 - **Cloud** — Google Gemini, streamed over plain HTTPS (no SDK). Needs a
   free API key.
@@ -105,17 +108,23 @@ Internet access is needed for Gemini responses and the initial model download.
 ```
 src/app/_layout.tsx            DB init, SettingsProvider, onboarding gate (Stack.Protected)
 src/app/onboarding.tsx         Intro slides + nickname step (first launch only)
-src/app/(tabs)/_layout.tsx     Tabs: Home, Chat (no headers)
-src/app/(tabs)/index.tsx       Home: greeting, AI status card, action buttons
-src/app/(tabs)/chat.tsx        The single chat (streaming, retry, stop, banners, gear button)
-src/app/settings.tsx           System settings (gear on Home): nickname, light/dark
-                               theme, backup/restore, about, reset all data
+src/app/(tabs)/_layout.tsx     Tabs: Home, Calendar, Add, AI, History
+src/app/(tabs)/index.tsx       Home: cash balance, daily spending and actions
+src/app/(tabs)/ledger.tsx      Plans: emergency fund, calendar and upcoming events
+src/app/(tabs)/insights.tsx    Cash-flow and category summaries
+src/app/(tabs)/ai.tsx          AI tab: switches between Insights and AI Chatbot
+src/db/budgets.ts              Monthly total and category budget persistence
+src/app/(tabs)/history.tsx     Search, export and restore transaction history
+src/app/(tabs)/chat.tsx        Streaming AI chat and budget chatbot
+src/app/settings.tsx           App preferences, full backup/restore and reset
 src/app/chat-settings.tsx      Chatbot settings (gear in Chat): provider, API key, model,
                                local model download, system prompt, clear chat
 src/db/client.ts               SQLite open + PRAGMA user_version migrations
+src/db/ledger.ts               Transactions, emergency fund and upcoming events
+src/ledger/format.ts            Cash-flow classification and money/date formatting
 src/db/conversations.ts        Conversation row for the single chat
 src/db/messages.ts             Message repository (status: done|pending|error)
-src/settings/storage.ts        kv-store settings + SecureStore API key
+src/settings/storage.ts        KV-store settings + SecureStore API key
 src/settings/SettingsContext.tsx
 src/ai/types.ts                ChatProvider interface
 src/ai/gemini.ts               Gemini REST + SSE streaming
@@ -124,9 +133,8 @@ modules/local-ai-device/       Android hardware probes and native audio conversi
 src/ai/index.ts                getProvider(settings): provider switch
 src/hooks/useNetwork.ts        NetInfo connectivity
 src/hooks/useAiStatus.ts       "Can the selected AI answer right now?"
-src/utils/confirm.ts           Confirm dialogs that work on Android and web
-src/backup/                    Backup/restore to a JSON file (share sheet on
-                               Android, download on web)
+src/utils/confirm.ts           Android confirmation dialogs
+src/backup/                    JSON full backup and transaction-history CSV
 src/components/                Banner, ChatInput, MessageBubble, Section, Dropdown,
                                ContextRing
 src/theme.ts                   Light/dark colors
@@ -140,23 +148,25 @@ On first launch the app shows `src/app/onboarding.tsx`: a few intro slides
 the main tabs. The nickname is shown on Home and added to the AI system
 prompt (`buildSystemPrompt()` in `src/settings/storage.ts`). Change it in
 **Settings > Profile** (gear icon on Home). **Settings > Reset all data**
-deletes the chat, all settings, the API key and the downloaded local model,
-then starts again from onboarding.
+deletes all chats, transactions, emergency-fund savings, upcoming events,
+settings, the API key, and the downloaded local model, then starts again from
+onboarding.
 
 **Settings > Appearance** switches between Light (default) and Dark.
-**Settings > Data** backs everything up to a JSON file (share sheet on
-Android, download in the browser) and restores it later. The backup
-contains the chat and settings — never the Gemini API key, and not the
-downloaded local model file.
+**Settings > Data** backs up chat, portable settings, transactions, emergency
+fund balance and goal, and upcoming events to JSON. The Gemini API key,
+downloaded local model, and media attachments are excluded. History CSV
+contains transactions only; use the JSON backup for complete financial
+restore.
 
-### Home buttons
+### Cash-flow accounting
 
-The Home tab renders the `ACTIONS` array in `src/app/(tabs)/index.tsx` as a
-grid of buttons. The dashed "Your feature" tiles are empty placeholders
-(no `onPress` yet). To add a feature: create a screen (e.g.
-`src/app/notes.tsx`), then add `{ label, icon, onPress: (router) =>
-router.push('/notes') }` to `ACTIONS`. Icons are
-[Ionicons](https://icons.expo.fyi) names.
+Emergency-fund contributions and spending remain visible in transaction
+history, but are not regular cash income or expenses. Home balances, Insights,
+AI Chatbot summaries, and expense categories use the same classification.
+Insights and AI Chatbot show additions and spending from the emergency fund in
+separate savings-activity metrics. Expense forms ask whether an expense uses
+the regular balance or the emergency fund.
 
 
 ### Offline-first data flow
@@ -181,12 +191,14 @@ Implement `ChatProvider` (see `src/ai/types.ts`) in a new file under
 `generate()` receives the full message history (new user message last) and
 calls `opts.onToken` for each streamed chunk.
 
-### Changing the package name
+### Android package ID before release
 
-Edit `android.package` in `app.json` (currently
-`com.example.offlineaistarter`), then run `npx expo prebuild --clean` or
-`npx expo run:android` again to regenerate the native project. The
-`android/` directory is generated — do not edit it by hand.
+`android.package` in `app.json` is still the example value
+`com.example.offlineaistarter`. Choose the app owner's permanent
+reverse-domain ID before publishing; changing it later creates a different
+Android app identity. Then regenerate the native project with
+`npx expo prebuild --clean` or `npx expo run:android`. The `android/`
+directory is generated — do not edit it by hand.
 
 ## Troubleshooting
 

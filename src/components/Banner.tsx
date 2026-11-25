@@ -1,6 +1,7 @@
 import { useTheme } from '@/theme';
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { SmoothPressable } from '@/components/SmoothPressable';
 
 interface Props {

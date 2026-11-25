@@ -6,10 +6,11 @@
 loads settings, and shows onboarding until the user finishes it. The root
 Expo Router stack protects the onboarding and app routes.
 
-The tab group in `src/app/(tabs)/_layout.tsx` contains Home and Chat. Chat
-hides the bottom tab bar. The Home screen presents the selected-provider status
-and action tiles. Chat owns the single conversation, message composer, recorder,
-provider selection, streaming updates, retries, and stop control.
+The tab group in `src/app/(tabs)/_layout.tsx` contains Home, Calendar, Add, AI,
+and History. Add keeps the income and expense forms on one page. AI switches
+between Insights and the AI Chatbot. The chatbot uses the configured provider
+and receives an aggregate ledger summary plus the current month's saved budget.
+Budget plans are stored locally in SQLite.
 
 Chat settings live in `src/app/chat-settings.tsx`; app appearance, profile,
 backup, restore, and reset live in `src/app/settings.tsx`.
@@ -26,20 +27,37 @@ backup, restore, and reset live in `src/app/settings.tsx`.
 
 `src/ai/types.ts` defines the shared `ChatProvider`, `ChatMessage`, and
 `GenerateOptions` contracts. When a new app launch finds a pending assistant
-message, it marks generation interrupted. The app has one chat thread, with id
-`main`.
+message, it marks generation interrupted. General chat and the AI Budget
+Chatbot use separate persisted threads (`main` and `coach`).
 
 ## Local persistence
 
 - `src/db/client.ts` owns the SQLite database and ordered schema migrations.
 - `src/db/messages.ts` and `src/db/conversations.ts` hold query functions.
 - `src/settings/storage.ts` stores regular settings in Expo SQLite KV Store.
-  The Gemini API key uses Expo SecureStore on Android and session storage in the
-  browser.
+  The Gemini API key uses Expo SecureStore on Android.
 - `src/attachments/files.ts` copies images and recordings into app-private
   attachment storage. Clearing all chats removes those files.
-- `src/backup/` exports and restores conversations, messages, and portable
-  settings. The backup does not contain the API key or downloaded model.
+- `src/db/budgets.ts` stores monthly total and per-category budget limits.
+- `src/backup/backup.ts` exports and restores conversations, messages,
+  portable settings (including the low-cash alert and custom e-wallet choices),
+  transactions, monthly budgets, emergency-fund balance and goal, and events.
+  The API key, downloaded model, and attachment files are not included.
+
+## Money ledger and cash flow
+
+- `src/db/ledger.ts` stores transactions, the emergency-fund balance and goal,
+  and upcoming events. Fund additions and spending update the balance and add
+  their history rows atomically.
+- `src/ledger/format.ts` keeps emergency-fund movements out of regular cash
+  income, expenses, balances, low-cash calculations, and expense categories.
+  Plans, Insights, and the AI Chatbot show fund activity separately.
+- Home and Plans use an explicit payment source for expenses. Choosing the
+  emergency fund validates available balance before recording the spending.
+- History CSV files contain transactions only. Restoring one adjusts the
+  emergency-fund balance for the difference in fund transactions; the current
+  fund goal and upcoming events remain unchanged. Use the JSON backup for a
+  complete ledger restore.
 
 ## Downloaded model lifecycle
 

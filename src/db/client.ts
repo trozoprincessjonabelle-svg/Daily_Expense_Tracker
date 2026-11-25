@@ -31,6 +31,52 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE messages ADD COLUMN audio_uri TEXT;
   `,
+  `
+  CREATE TABLE IF NOT EXISTS ledger_transactions (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL CHECK (type IN ('expense', 'income')),
+    amount REAL NOT NULL CHECK (amount > 0),
+    category TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    transaction_date TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_ledger_transactions_date
+    ON ledger_transactions (transaction_date DESC, created_at DESC);
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS ledger_emergency_fund (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    balance REAL NOT NULL DEFAULT 0 CHECK (balance >= 0),
+    goal REAL NOT NULL DEFAULT 0 CHECK (goal >= 0)
+  );
+  INSERT OR IGNORE INTO ledger_emergency_fund (id) VALUES (1);
+  CREATE TABLE IF NOT EXISTS ledger_upcoming_events (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0 CHECK (amount >= 0),
+    event_date TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_ledger_upcoming_events_date
+    ON ledger_upcoming_events (event_date, created_at);
+  `,
+  `
+  UPDATE ledger_transactions
+  SET type = 'income'
+  WHERE type = 'expense'
+    AND category = 'Savings'
+    AND note = 'Added to emergency fund';
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS ledger_budgets (
+    month TEXT NOT NULL,
+    category TEXT NOT NULL,
+    amount REAL NOT NULL CHECK (amount > 0),
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (month, category)
+  );
+  `,
 ];
 
 export function newId(): string {

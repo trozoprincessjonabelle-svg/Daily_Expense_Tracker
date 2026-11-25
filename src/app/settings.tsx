@@ -2,15 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useRouter, type Href } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/LocalizedTextInput';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { deleteModel } from '@/ai/local';
 import { exportBackup, pickBackup, restoreBackup } from '@/backup/backup';
 import { Button } from '@/components/Button';
+import { LowCashAlertSettings } from '@/components/ledger/LowCashAlertSettings';
 import { Section } from '@/components/Section';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import { clearAllConversations } from '@/db/conversations';
+import { clearAllLedgerData } from '@/db/ledger';
 import { useSettings } from '@/settings/SettingsContext';
-import type { ThemeMode } from '@/settings/storage';
+import type { AppLanguage, ThemeMode } from '@/settings/storage';
 import { useTheme, type Theme } from '@/theme';
 import { confirmAction } from '@/utils/confirm';
 
@@ -19,7 +23,7 @@ const THEME_OPTIONS: { id: ThemeMode; label: string; icon: 'sunny-outline' | 'mo
   { id: 'dark', label: 'Dark', icon: 'moon-outline' },
 ];
 
-/** App-wide (system) settings. Chatbot options live in chat-settings.tsx. */
+/** App-wide (system) settings. */
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -45,7 +49,10 @@ export default function SettingsScreen() {
   };
 
   const backup = () =>
-    run(async () => `Backup created (${await exportBackup(settings)} messages).`);
+    run(async () => {
+      const count = await exportBackup(settings);
+      return `Full backup created (${count} chat message${count === 1 ? '' : 's'}).`;
+    });
 
   const restore = async () => {
     if (busy) return;
@@ -57,7 +64,9 @@ export default function SettingsScreen() {
       if (!b) return; // picker cancelled
       confirmAction(
         'Restore backup?',
-        `This replaces your current chat and settings with the backup from ${new Date(b.createdAt).toLocaleString()} (${b.messages.length} messages).`,
+        b.ledger
+          ? `This replaces your chat, settings, transactions, emergency fund, and events with the backup from ${new Date(b.createdAt).toLocaleString()} (${b.messages.length} messages).`
+          : `This replaces your chat and settings with the backup from ${new Date(b.createdAt).toLocaleString()} (${b.messages.length} messages). This older backup has no financial data, so your current transactions, emergency fund, and events will remain unchanged.`,
         'Restore',
         () =>
           void (async () => {
@@ -88,10 +97,11 @@ export default function SettingsScreen() {
   const resetAllData = () =>
     confirmAction(
       'Reset all data?',
-      'This deletes your chat, nickname, settings, API key and the downloaded local model. The app will start again from onboarding.',
+      'This deletes all chats, transactions, emergency-fund savings, upcoming events, settings, notification status, API key and the downloaded local model. The app will start again from onboarding.',
       'Reset',
       async () => {
         await clearAllConversations();
+        await clearAllLedgerData();
         await deleteModel();
         // Settings go back to defaults (onboarded = false), so the root
         // layout switches to the onboarding screen.
@@ -165,10 +175,44 @@ export default function SettingsScreen() {
         </View>
       </Section>
 
+      <Section title="Choose your language" theme={theme}>
+        <View style={styles.segmented}>
+          {([
+            { id: 'tl', label: 'Tagalog' },
+            { id: 'en', label: 'English' },
+          ] as const).map((option: { id: AppLanguage; label: string }) => {
+            const active = settings.language === option.id;
+            return (
+              <SmoothPressable
+                key={option.id}
+                accessibilityRole="radio"
+                accessibilityLabel={option.label}
+                accessibilityState={{ checked: active }}
+                onPress={() => update('language', option.id)}
+                style={[
+                  styles.segment,
+                  { backgroundColor: active ? theme.buttonPrimary : theme.buttonSecondary },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: active ? '#FFFFFF' : theme.textSecondary,
+                    fontWeight: active ? '700' : '400',
+                  }}
+                >
+                  {option.label}
+                </Text>
+              </SmoothPressable>
+            );
+          })}
+        </View>
+      </Section>
+
+      <LowCashAlertSettings />
+
       <Section title="Data" theme={theme}>
         <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
-          Save your chat and settings to a file, or restore them later. Your
-          Gemini API key and the downloaded local model are not included.
+          Save your chat, settings, transactions, emergency fund, and events to a file, or restore them later. Your cloud API key, downloaded local model, and media attachments are not included.
         </Text>
         <Button label="Back up data" icon="cloud-upload-outline" onPress={backup} disabled={busy} style={{ marginTop: 12 }} />
         <Button label="Restore from backup" icon="cloud-download-outline" variant="secondary" onPress={restore} disabled={busy} style={{ marginTop: 10 }} />
@@ -186,7 +230,7 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title="About" theme={theme}>
-        <Row label="App" value={Constants.expoConfig?.name ?? '-'} theme={theme} />
+        <Row label="App" value="Expense Tracker" theme={theme} />
         <Row label="Version" value={Constants.expoConfig?.version ?? '-'} theme={theme} />
         <LinkRow
           label="Privacy Policy"

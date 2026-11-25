@@ -9,67 +9,51 @@ export interface LegalDoc {
   sections: LegalSection[];
 }
 
-const EFFECTIVE = 'October 13, 2026';
+const EFFECTIVE = 'November 7, 2026';
 
 export const PRIVACY_POLICY: LegalDoc = {
   title: 'Privacy Policy',
   effective: EFFECTIVE,
   sections: [
     {
-      heading: 'Overview',
+      heading: 'About Expense Tracker',
       body: [
-        'This app is built to keep your data on your device. It has no accounts and no servers of its own, and it does not include analytics, ads or tracking.',
+        'Expense Tracker is an offline-first budgeting app designed for students to record allowance and other income, school and everyday expenses, savings, and upcoming costs. The app does not require an account or operate its own server. Your ledger is stored on your device.',
       ],
     },
     {
-      heading: 'Data stored on your device',
+      heading: 'Information stored on your device',
       body: [
-        'Your chat messages are saved in a local database on your phone. Images and voice messages you attach are stored in the app\'s private storage.',
-        'Your settings (nickname, theme, AI provider, model choice and system prompt) are saved locally.',
-        'Your Gemini API key, if you enter one, is stored encrypted in Android secure storage.',
-        'The local AI model file (about 2.6 GB) is saved in the app\'s private storage after you download it.',
-        'This data stays on your device until you clear the chat, use "Reset all data", or uninstall the app.',
+        'Ledger records can include transaction dates, amounts, categories, and descriptions. The app also stores monthly total and category budgets, your emergency-fund balance and goal, upcoming event names, dates and estimated costs, and app preferences such as your nickname and theme.',
+        'If you use chat, your conversations and attached files are stored in the app on your device. If you choose Local AI, the downloaded model is also stored on your device.',
+        'The AI Budget Chatbot sends data only when you choose a provider and send a message. Its ledger-aware mode includes an aggregate summary and your current monthly budget limits, not the full transaction history. The chat screen shows whether this context will be sent to Gemini or kept on-device with Local AI.',
       ],
     },
     {
-      heading: 'Local AI (Gemma on-device)',
+      heading: 'AI features and third-party services',
       body: [
-        'When you use Local AI, your messages are processed entirely on your device and never leave it.',
+        'AI Budget Chatbot recommendations are generated using the provider selected in Chat settings. Its context includes aggregate ledger totals, leading expense categories, and the current monthly total and category budgets.',
+        'If you choose Cloud AI and send a chat message, the message and chatbot context are sent to the AI provider you selected. The provider handles that information under its own privacy terms. Do not include sensitive financial or personal information in cloud chats.',
+        'If you choose Local AI, chat messages are processed on your device. Downloading a local model requires an internet connection to the download host, which may receive standard connection information such as your IP address.',
       ],
     },
     {
-      heading: 'Cloud AI (Google Gemini)',
+      heading: 'Exports and backups',
       body: [
-        'When you choose Cloud AI, your messages, any images or voice messages you attach, the chat history, the system prompt (which includes your nickname if you set one) and your API key are sent over an encrypted connection directly to Google\'s Gemini API to generate a reply.',
-        'Google processes this data under its own terms and privacy policy. Avoid sending sensitive personal information to Cloud AI.',
+        'You can export transaction history to a CSV file or create an app backup file. Exported files may contain personal financial records. You choose where to save or share them, and anyone with access to a file may be able to read its contents.',
+        'The JSON app backup includes chat, portable settings, transactions, monthly budgets, emergency-fund balance and goal, and upcoming events. It does not include your API key, attached files, or downloaded local model. History CSV contains transactions only; restoring a CSV adjusts the emergency-fund balance for imported fund activity, while the current goal and events remain unchanged.',
       ],
     },
     {
-      heading: 'Model download',
+      heading: 'Your choices and data removal',
       body: [
-        'Downloading the local model connects to Hugging Face (huggingface.co). As with any download, that service can see your IP address.',
+        'You can delete individual transactions, clear transaction history, reset app data, or uninstall the app. Deleting a fund transaction also adjusts the emergency-fund balance. Clearing transaction history resets the emergency-fund balance and goal. Files exported or shared outside the app must be removed separately.',
       ],
     },
     {
-      heading: 'Backups',
+      heading: 'Children and policy changes',
       body: [
-        '"Back up data" creates a file with your chat and settings. Your API key, attached images, voice messages and the model file are not included. You choose where the file goes, and anyone who has the file can read your chat.',
-      ],
-    },
-    {
-      heading: 'Your choices',
-      body: [
-        'You can clear the chat at any time, reset all data from Settings, or uninstall the app to remove everything it stored.',
-      ],
-    },
-    {
-      heading: 'Children',
-      body: ['This app is not directed at children under 13.'],
-    },
-    {
-      heading: 'Changes',
-      body: [
-        'This policy may be updated. The effective date above shows when it last changed.',
+        'Expense Tracker is not directed at children under 13. This policy may be updated; the effective date above shows when it was last revised.',
       ],
     },
   ],
@@ -80,57 +64,43 @@ export const TERMS: LegalDoc = {
   effective: EFFECTIVE,
   sections: [
     {
-      heading: 'Acceptance',
-      body: ['By using this app you agree to these terms. If you do not agree, do not use the app.'],
-    },
-    {
-      heading: 'The app',
+      heading: 'Use of the app',
       body: [
-        'The app is an AI chat assistant. It can run the Gemma model on your device, or use Google Gemini with an API key that you provide.',
+        'These terms describe the app and the conditions for using it. You can review them anytime in Settings.',
       ],
     },
     {
-      heading: 'AI responses',
+      heading: 'What the app does',
       body: [
-        'AI responses can be wrong, incomplete or inappropriate. They are not professional medical, legal, financial or other advice. Check important information yourself before relying on it.',
+        'Expense Tracker helps students record allowance and other income, track school and everyday expenses, set monthly and category budgets, set a savings goal, plan upcoming costs, review spending summaries, and optionally use AI chat features.',
+        'The app stores ledger information on your device. It does not connect to your bank, move money, or make payments. The Pay button for an upcoming event records the estimated cost as an expense in the ledger; you must make any real-world payment separately.',
       ],
     },
     {
-      heading: 'Your responsibilities',
+      heading: 'Your records and responsibility',
       body: [
-        'Use the app lawfully and do not use it to create harmful or illegal content.',
-        'You are responsible for your Gemini API key, how it is used, and any usage limits or charges from Google.',
-        'When you use Cloud AI you must also follow Google\'s Gemini API terms. The local model is subject to the Gemma terms of use.',
+        'You are responsible for entering accurate records and reviewing them before making financial decisions. Balances and summaries are calculated from the information recorded in the app and may not reflect your actual bank balance.',
+        'AI-generated tips and chat replies are informational only, may be inaccurate or incomplete, and are not financial, legal, tax, or other professional advice. Use your own judgment and consult a qualified professional when appropriate.',
+        'You are responsible for keeping copies of any exported records you need. Deleted or lost local data and files cannot necessarily be recovered.',
       ],
     },
     {
-      heading: 'Third-party services',
+      heading: 'Optional AI and external services',
       body: [
-        'Google Gemini and Hugging Face are third-party services with their own terms. We are not responsible for their availability or behaviour.',
+        'Cloud AI and local model downloads may rely on third-party services. If you use them, their availability and handling of information are governed by their own terms and policies.',
+        'You are responsible for the use and security of any API key you provide and for any third-party usage limits or charges that may apply.',
       ],
     },
     {
-      heading: 'Device resources',
+      heading: 'Acceptable use and availability',
       body: [
-        'The local model needs about 2.6 GB of storage and a lot of memory and battery. Downloading it over mobile data may incur charges.',
-      ],
-    },
-    {
-      heading: 'Your content',
-      body: [
-        'Your chats belong to you and are stored only on your device. You are responsible for keeping backups. Data that is deleted or lost cannot be recovered by us.',
-      ],
-    },
-    {
-      heading: 'Disclaimer',
-      body: [
-        'The app is provided "as is", without warranties of any kind. To the extent permitted by law, we are not liable for any damages arising from your use of the app or its AI responses.',
+        'Use the app lawfully and do not interfere with its operation or use it to violate another person’s rights. Features may change, and the app is provided without a guarantee of uninterrupted availability or error-free calculations.',
       ],
     },
     {
       heading: 'Changes',
       body: [
-        'These terms may be updated. The effective date above shows when they last changed. If you keep using the app, you accept the updated terms.',
+        'These terms may be revised. The effective date above shows when they were last updated. If a revision requires renewed acceptance, the app will ask you to agree before continuing.',
       ],
     },
   ],

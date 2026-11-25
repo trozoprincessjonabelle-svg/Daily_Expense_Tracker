@@ -1,8 +1,24 @@
-# Offline AI Starter
+# Expense Tracker
 
-An Android-first Expo chatbot with on-device Gemma 4 E2B, cloud Gemini, and
-local SQLite conversation storage. The Android app uses native modules, so run
-it in a development build; Expo Go is not supported.
+An offline student budget and expense tracker built with Expo for Android and
+the web.
+Students can track baon, allowances, part-time earnings, school costs,
+and everyday spending, then review helpful on-device insights. Transactions
+are stored locally in SQLite; no internet connection is needed for the ledger,
+insights, or coach. In a browser, data stays in that browser's local storage.
+
+The interface is available in English and Tagalog. Change the language in
+**Settings → Choose your language**.
+
+The AI tab combines cash-flow insights with an AI Budget Chatbot. The chatbot
+uses the provider selected in **Chat settings** and can recommend a total
+monthly budget and category limits from saved ledger and budget data. Budget
+plans remain stored locally; when using Gemini Cloud, the chatbot sends its
+aggregate ledger and budget context with your messages. The Android app uses
+native modules, so run it in a development build; Expo Go is not supported.
+
+Before publishing a release, replace the example Android package ID in
+`app.json` with the app owner's permanent reverse-domain package ID.
 
 ## Documentation
 
@@ -17,7 +33,13 @@ See **[docs/README.md](docs/README.md)** for the documentation index.
 
 ## Quick start
 
-Install packages, then run the Android development build on an ARM phone:
+Start the website at `http://localhost:8081`:
+
+```bash
+npm run web
+```
+
+To run the Android development build on an ARM phone:
 
 ```bash
 SKIP_IOS_FRAMEWORK_DOWNLOAD=1 npm install

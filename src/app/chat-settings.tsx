@@ -6,10 +6,10 @@ import {
   Keyboard,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/LocalizedTextInput';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { AUTO_MODEL, listGeminiModels } from '@/ai/gemini';
 import {
   cancelDownload,
@@ -35,8 +35,8 @@ import { useTheme, type Theme } from '@/theme';
 import { confirmAction, showMessage } from '@/utils/confirm';
 
 const PROVIDERS: DropdownOption<ProviderId>[] = [
-  { value: 'cloud', label: 'Cloud AI (Gemini)', description: 'Needs internet and a free API key' },
   { value: 'local', label: 'Local AI', description: 'Runs on the phone, works offline' },
+  { value: 'cloud', label: 'Cloud AI', description: 'Needs internet and a cloud API key' },
 ];
 
 const BACKENDS: DropdownOption<LocalBackend>[] = [
@@ -142,7 +142,7 @@ export default function ChatSettingsScreen() {
   );
 }
 
-/** Gemini API key + model picker. */
+/** Cloud API key + model picker. */
 function CloudSection({ theme }: { theme: Theme }) {
   const { settings, update } = useSettings();
   const [apiKeyDraft, setApiKeyDraft] = useState(settings.geminiApiKey);
@@ -187,14 +187,14 @@ function CloudSection({ theme }: { theme: Theme }) {
   ];
 
   return (
-    <Section title="Cloud AI (Gemini)" theme={theme}>
+    <Section title="Cloud AI" theme={theme}>
       <Text style={[styles.label, { color: theme.text }]}>API key</Text>
       <TextInput
         style={[
           styles.input,
           { backgroundColor: theme.inputBackground, borderColor: theme.border, color: theme.text },
         ]}
-        accessibilityLabel="Gemini API key"
+        accessibilityLabel="Cloud API key"
         value={apiKeyDraft}
         onChangeText={setApiKeyDraft}
         onBlur={() => update('geminiApiKey', apiKeyDraft.trim())}
@@ -283,6 +283,9 @@ function LocalSection({ theme }: { theme: Theme }) {
 
   return (
     <Section title="Local AI" theme={theme}>
+      <Text style={[styles.hint, { color: theme.textSecondary, marginTop: 0 }]}>
+        Runs on this Android device after a one-time download. No API key or paid API tokens are needed.
+      </Text>
       <LocalHardwareStatus loaded={status.state === 'loaded'} />
       <Text style={[styles.label, { color: theme.text }]}>Status: {statusText}</Text>
       {(status.state === 'downloading' || status.state === 'paused') && (

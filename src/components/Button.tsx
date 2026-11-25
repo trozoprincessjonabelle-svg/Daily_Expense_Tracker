@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, type PressableProps } from 'react-native';
+import { ActivityIndicator, StyleSheet, type PressableProps } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { useTheme } from '@/theme';
 import { SmoothPressable } from './SmoothPressable';
 

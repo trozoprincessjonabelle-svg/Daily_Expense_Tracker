@@ -7,12 +7,19 @@ export interface Theme {
   textSecondary: string;
   border: string;
   tint: string;
+  primarySoft: string;
+  accent: string;
   buttonPrimary: string;
   buttonSecondary: string;
   buttonDanger: string;
   danger: string;
+  dangerSurface: string;
+  dangerBorder: string;
   success: string;
   warning: string;
+  warningSurface: string;
+  warningBorder: string;
+  chartColors: readonly string[];
   userBubble: string;
   userBubbleText: string;
   assistantBubble: string;
@@ -21,40 +28,54 @@ export interface Theme {
 
 const light: Theme = {
   background: '#FFFFFF',
-  card: '#F2F2F7',
-  text: '#111111',
-  textSecondary: '#6B6B70',
-  border: '#D8D8DE',
-  tint: '#0066CC',
-  buttonPrimary: '#0066CC',
-  buttonSecondary: '#E6E8EE',
-  buttonDanger: '#BA2525',
-  danger: '#B42323',
-  success: '#2E7D32',
-  warning: '#A14800',
-  userBubble: '#0066CC',
+  card: '#FFFFFF',
+  text: '#1C1917',
+  textSecondary: '#6B7280',
+  border: '#E5E7EB',
+  tint: '#C2410C',
+  primarySoft: '#FFF3E8',
+  accent: '#F97316',
+  buttonPrimary: '#C2410C',
+  buttonSecondary: '#FFF0E3',
+  buttonDanger: '#DC2626',
+  danger: '#E11D48',
+  dangerSurface: '#FFF1F2',
+  dangerBorder: '#FECDD3',
+  success: '#C2410C',
+  warning: '#C2410C',
+  warningSurface: '#FFF7ED',
+  warningBorder: '#FDBA74',
+  chartColors: ['#9A3412', '#C2410C', '#EA580C', '#F97316', '#FB923C', '#FDBA74'],
+  userBubble: '#C2410C',
   userBubbleText: '#FFFFFF',
-  assistantBubble: '#E9E9EE',
-  inputBackground: '#F2F2F7',
+  assistantBubble: '#FFF3E8',
+  inputBackground: '#F9FAFB',
 };
 
 const dark: Theme = {
-  background: '#0E0E12',
-  card: '#1C1C22',
-  text: '#F2F2F5',
-  textSecondary: '#9A9AA3',
-  border: '#2E2E38',
-  tint: '#70B7FF',
-  buttonPrimary: '#0A65C7',
-  buttonSecondary: '#303038',
-  buttonDanger: '#BA2525',
-  danger: '#FF8885',
-  success: '#66BB6A',
-  warning: '#FFA726',
-  userBubble: '#1C6FD1',
+  background: '#0A0A0A',
+  card: '#161616',
+  text: '#F9FAFB',
+  textSecondary: '#A3A3A3',
+  border: '#333333',
+  tint: '#FDBA74',
+  primarySoft: '#2A180D',
+  accent: '#FF9500',
+  buttonPrimary: '#C2410C',
+  buttonSecondary: '#262626',
+  buttonDanger: '#EF4444',
+  danger: '#FB7185',
+  dangerSurface: '#2D1519',
+  dangerBorder: '#5E222B',
+  success: '#FDBA74',
+  warning: '#FDBA74',
+  warningSurface: '#2C1A0D',
+  warningBorder: '#8C501B',
+  chartColors: ['#9A3412', '#C2410C', '#EA580C', '#F97316', '#FB923C', '#FDBA74'],
+  userBubble: '#C2410C',
   userBubbleText: '#FFFFFF',
-  assistantBubble: '#23232C',
-  inputBackground: '#1C1C22',
+  assistantBubble: '#1E1E1E',
+  inputBackground: '#101010',
 };
 
 export function useTheme(): Theme {

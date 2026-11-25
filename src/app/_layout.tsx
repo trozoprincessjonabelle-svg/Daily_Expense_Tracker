@@ -2,31 +2,71 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { getDb } from '@/db/client';
 import { refreshModelStatus } from '@/ai/local';
 import { DownloadStatusIndicator } from '@/components/DownloadStatusIndicator';
 import { PopupProvider } from '@/components/Popup';
 import { AccessibilityPreferences, useReduceMotion } from '@/components/AccessibilityPreferences';
 import { SettingsProvider, useSettings } from '@/settings/SettingsContext';
+import { translate } from '@/settings/language';
 import { useTheme } from '@/theme';
 
 export default function RootLayout() {
   const theme = useTheme();
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     // Open + migrate the database and read the local model's on-disk
     // state before rendering any screen.
-    Promise.all([getDb(), refreshModelStatus()])
-      .catch((e) => console.warn('Init failed:', e))
-      .finally(() => setReady(true));
-  }, []);
+    let active = true;
+    const initialize = async () => {
+      setReady(false);
+      setInitError(null);
+      try {
+        await getDb();
+      } catch (error) {
+        if (active) {
+          setInitError(error instanceof Error ? error.message : 'Unknown database initialization error.');
+          setReady(true);
+        }
+        return;
+      }
+
+      if (!active) return;
+      try {
+        await refreshModelStatus();
+      } catch (error) {
+        console.warn('Unable to refresh local model status:', error);
+      }
+      if (active) setReady(true);
+    };
+    void initialize();
+    return () => { active = false; };
+  }, [retryCount]);
 
   if (!ready) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
         <ActivityIndicator color={theme.tint} />
+      </View>
+    );
+  }
+
+  if (initError) {
+    return (
+      <View style={[styles.errorContainer, { backgroundColor: theme.background }]}>
+        <Text style={[styles.errorTitle, { color: theme.text }]}>Could not open your data</Text>
+        <Text style={[styles.errorMessage, { color: theme.textSecondary }]}>{initError}</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setRetryCount((count) => count + 1)}
+          style={[styles.retryButton, { backgroundColor: theme.buttonPrimary }]}
+        >
+          <Text style={styles.retryLabel}>Try again</Text>
+        </Pressable>
       </View>
     );
   }
@@ -73,11 +113,11 @@ function RootNavigator() {
         </Stack.Protected>
         <Stack.Protected guard={settings.onboarded}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-          <Stack.Screen name="chat-settings" options={{ title: 'Chat settings' }} />
-          <Stack.Screen name="privacy" options={{ title: 'Privacy Policy' }} />
-          <Stack.Screen name="terms" options={{ title: 'Terms & Conditions' }} />
+          <Stack.Screen name="settings" options={{ title: translate(settings.language, 'Settings') }} />
+          <Stack.Screen name="chat-settings" options={{ title: translate(settings.language, 'Chat settings') }} />
         </Stack.Protected>
+        <Stack.Screen name="privacy" options={{ title: translate(settings.language, 'Privacy Policy') }} />
+        <Stack.Screen name="terms" options={{ title: translate(settings.language, 'Terms & Conditions') }} />
       </Stack>
       <DownloadStatusIndicator />
     </>
@@ -86,4 +126,9 @@ function RootNavigator() {
 
 const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 },
+  errorTitle: { fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  errorMessage: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  retryButton: { minHeight: 46, minWidth: 140, alignItems: 'center', justifyContent: 'center', borderRadius: 14, paddingHorizontal: 18, marginTop: 6 },
+  retryLabel: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

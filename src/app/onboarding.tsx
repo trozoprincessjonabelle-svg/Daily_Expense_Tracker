@@ -3,33 +3,33 @@ import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/LocalizedTextInput';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { useSettings } from '@/settings/SettingsContext';
 import { useTheme } from '@/theme';
+import { showMessage } from '@/utils/confirm';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-/** Intro slides. Edit, add or remove entries to change the onboarding. */
 const SLIDES: { icon: IconName; title: string; body: string }[] = [
   {
-    icon: 'sparkles-outline',
-    title: 'Welcome',
-    body: 'A starter app with an AI assistant built in. Make it your own.',
+    icon: 'wallet-outline',
+    title: 'Your student budget, made clearer',
+    body: 'Track your allowance, earnings, and everyday school expenses in one simple ledger.',
   },
   {
     icon: 'cloud-offline-outline',
     title: 'Offline first',
-    body: 'Your chats are saved on this phone and work without internet.',
+    body: 'Your student budget and insights stay on this phone and work without internet.',
   },
   {
-    icon: 'hardware-chip-outline',
-    title: 'Cloud or on-device AI',
-    body: 'Use Gemini with a free API key, or download Gemma to run AI fully on your phone.',
+    icon: 'sparkles-outline',
+    title: 'Helpful student money insights',
+    body: 'The offline Coach uses your saved money records for recommendations. No model download or internet is needed.',
   },
 ];
 
@@ -42,10 +42,13 @@ export default function OnboardingScreen() {
   const isNicknameStep = step === SLIDES.length;
   const trimmed = nickname.trim();
 
-  const finish = () => {
-    update('nickname', trimmed);
-    // Flipping this flag makes the root layout switch to the main app.
-    update('onboarded', true);
+  const finish = async () => {
+    try {
+      await update('nickname', trimmed);
+      await update('onboarded', true);
+    } catch (error) {
+      showMessage('Could not finish setup', error instanceof Error ? error.message : 'Please try again.');
+    }
   };
 
   return (
@@ -70,7 +73,7 @@ export default function OnboardingScreen() {
                 autoFocus
                 maxLength={30}
                 returnKeyType="done"
-                onSubmitEditing={() => trimmed && finish()}
+                onSubmitEditing={() => { if (trimmed) void finish(); }}
                 style={[
                   styles.input,
                   {
@@ -95,7 +98,7 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.dots}>
-          {[...SLIDES, null].map((_, i) => (
+          {Array.from({ length: SLIDES.length + 1 }, (_, i) => (
             <View
               key={i}
               style={[
@@ -107,8 +110,19 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Button label={step > 0 ? 'Back' : 'Skip'} variant="secondary" onPress={() => setStep(step > 0 ? step - 1 : SLIDES.length)} />
-          <Button label={isNicknameStep ? 'Get started' : 'Next'} disabled={isNicknameStep && !trimmed} onPress={() => isNicknameStep ? finish() : setStep(step + 1)} />
+          <Button
+            label={step > 0 ? 'Back' : 'Skip intro'}
+            variant="secondary"
+            onPress={() => setStep(step > 0 ? step - 1 : SLIDES.length)}
+          />
+          <Button
+            label={isNicknameStep ? 'Continue' : 'Next'}
+            disabled={isNicknameStep && !trimmed}
+            onPress={() => {
+              if (isNicknameStep) void finish();
+              else setStep(step + 1);
+            }}
+          />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

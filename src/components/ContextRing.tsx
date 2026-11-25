@@ -1,7 +1,8 @@
 import { Button } from './Button';
 import { Popup } from './Popup';
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import Svg, { Circle } from 'react-native-svg';
 import type { ContextUsage } from '@/ai/types';

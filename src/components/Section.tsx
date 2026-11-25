@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import type { Theme } from '@/theme';
 
 /** A titled card used to group rows on settings screens. */

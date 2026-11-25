@@ -5,10 +5,10 @@ import {
   Image,
   Platform,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { LocalizedTextInput as TextInput } from '@/components/LocalizedTextInput';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { IconButton } from '@/components/Button';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import { useTheme, type Theme } from '../theme';

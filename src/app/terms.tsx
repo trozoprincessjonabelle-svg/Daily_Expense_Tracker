@@ -1,4 +1,3 @@
-import React from 'react';
 import { LegalDocView } from '@/components/LegalDocView';
 import { TERMS } from '@/legal/content';
 

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import type { Theme } from '@/theme';
 import { Popup } from './Popup';
 import { IconButton } from './Button';

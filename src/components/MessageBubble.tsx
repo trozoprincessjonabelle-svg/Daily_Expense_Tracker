@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, StyleSheet, View } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { useReduceMotion } from '@/components/AccessibilityPreferences';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import type { MessageRow } from '../db/messages';
@@ -91,7 +92,7 @@ export function MessageBubble({ message, pendingLabel, onRetry }: Props) {
           )}
           {isUser ? (
             message.content.length > 0 && (
-              <Text style={{ color: theme.userBubbleText, fontSize: 16 }}>
+              <Text translate={false} style={{ color: theme.userBubbleText, fontSize: 16 }}>
                 {message.content}
               </Text>
             )

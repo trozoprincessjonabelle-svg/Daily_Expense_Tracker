@@ -1,35 +1,33 @@
-# Student Guide: Offline AI Starter
+# Expense Tracker: Android Setup Guide
 
-This guide covers everything to do **before** you build your own project on
-this boilerplate: what you need, how to set up your computer, how to run the
-app, and what to change to make it yours.
-
-Read it from top to bottom the first time. Skip to
-[Checklist](#10-checklist-before-you-start-your-project) when you start your
-next project.
+This guide covers the Android development build, project setup, and safe
+release preparation for the offline-first expense tracker.
 
 ---
 
 ## 1. What you get
 
-An Android app built with **React Native + Expo** that already has:
+An Android app built with **React Native + Expo** with:
 
 | Feature | Where |
 | --- | --- |
 | Onboarding slides + nickname setup (first launch only) | `src/app/onboarding.tsx` |
-| Home screen with a greeting, AI status card and buttons | `src/app/(tabs)/index.tsx` |
-| Empty "Your feature" buttons for your own features | `ACTIONS` in `src/app/(tabs)/index.tsx` |
-| One AI chat screen (streaming replies, retry, stop) | `src/app/(tabs)/chat.tsx` |
+| Home cash balance, income, expenses and transaction actions | `src/app/(tabs)/index.tsx` |
+| Emergency fund, calendar and upcoming events | `src/app/(tabs)/ledger.tsx` |
+| Cash-flow analysis and category breakdown | `src/app/(tabs)/insights.tsx` |
+| Offline, ledger-based Coach suggestions and answers | `src/app/(tabs)/coach.tsx` |
+| Search, CSV export and transaction restore | `src/app/(tabs)/history.tsx` |
 | Context ring that shows how much the AI still remembers | `src/components/ContextRing.tsx` |
-| System settings (nickname, light/dark theme, backup/restore, about, reset all data) | `src/app/settings.tsx` |
+| Full chat/settings/ledger backup and restore, about, reset all data | `src/app/settings.tsx` |
 | Chatbot settings (AI provider, API key, model, local model, saved system prompt) | `src/app/chat-settings.tsx` |
 | Offline storage (SQLite database on the phone) | `src/db/` |
 | Cloud AI: Google Gemini (free API key) | `src/ai/gemini.ts` |
 | Local AI: Gemma 4 E2B running on the phone, no internet | `src/ai/local.ts` |
 
-**Offline-first** means the app saves everything on the device. It works
-without internet; Gemini replies and the initial local-model download need a connection. Image
-and voice attachments can be sent to either provider.
+**Offline-first** means ledger records and chat history are stored on the
+device. Ledger features and local AI work without internet after the model is
+downloaded; Gemini replies need a connection. Image and voice attachments can
+be sent to either provider.
 
 ---
 
@@ -53,7 +51,6 @@ and voice attachments can be sent to either provider.
 | [Git](https://git-scm.com) | Any recent | Getting/saving the code |
 | Code editor | e.g. [VS Code](https://code.visualstudio.com) | Editing |
 | EAS CLI | Latest (`npm install -g eas-cli`) | Building the Android app in Expo's cloud |
-| A web browser | Chrome or Edge | Testing the UI quickly |
 | *Optional:* Android Studio | Latest (JDK 17 + Android SDK 36 + NDK 27.1) | Only if you want to build on your own computer |
 
 You **don't need Android Studio**. The Android app is built on Expo's
@@ -102,10 +99,10 @@ Everything below is installed **automatically by `npm install`** from
 | Package | Version | What it's for |
 | --- | --- | --- |
 | `expo` | ~57.0 | The Expo SDK and CLI (`npx expo ...`) |
-| `react` / `react-dom` | 19.2.3 | React (react-dom is for the browser) |
+| `react` / `react-dom` | 19.2.3 | React runtime dependencies |
 | `react-native` | 0.86.3 | The mobile framework |
-| `react-native-web` | ^0.21 | Runs the app in the browser for testing |
-| `@expo/metro-runtime` | ~57.0 | Bundler runtime (needed for web) |
+| `react-native-web` | ^0.21 | Retained dependency; web is not a supported app target |
+| `@expo/metro-runtime` | ~57.0 | Expo bundler runtime |
 | `expo-dev-client` | ~57.0 | Lets you run your own dev build (instead of Expo Go) |
 | `expo-build-properties` | ~57.0 | Sets Android build options (min Android 8 / API 26) |
 
@@ -197,23 +194,13 @@ eas whoami       # should print your username
 
 ## 4. Get the code
 
-Copy the boilerplate into a **new folder for each project**. Don't work
-inside the original.
-
-```bash
-# from a Git repository
-git clone <boilerplate-repo-url> my-project
-cd my-project
-rm -rf .git          # Windows PowerShell: Remove-Item -Recurse -Force .git
-git init
-
-# or: copy the folder, then delete node_modules/ and android/ in the copy
-```
+Open the project folder in VS Code, or clone the repository URL provided by
+the maintainer. Keep its `.git` history; do not delete the repository metadata.
 
 Install packages:
 
 ```bash
-npm install
+SKIP_IOS_FRAMEWORK_DOWNLOAD=1 npm install
 ```
 
 If `npm install` fails at the `react-native-litert-lm` step (it tries to
@@ -227,18 +214,18 @@ SKIP_IOS_FRAMEWORK_DOWNLOAD=1 npm install
 
 ---
 
-## 5. Make it your project (rename)
+## 5. Set app identity before release
 
-Do this **before `eas init` and your first build**. Changing the package
-name later means a new app on the phone.
+Choose permanent app identifiers **before publishing**. Changing the Android
+package ID later creates a separate app installation.
 
 | What | File | Change |
 | --- | --- | --- |
-| App name on the phone | `app.json` > `expo.name` | `"Offline AI Starter"` → `"My Study Buddy"` |
-| Slug | `app.json` > `expo.slug` | `"my-study-buddy"` (lowercase, dashes) |
-| URL scheme | `app.json` > `expo.scheme` | `"my-study-buddy"` |
-| **Android package ID** | `app.json` > `expo.android.package` | `"com.yourname.mystudybuddy"` (must be unique, lowercase, no dashes) |
-| npm name | `package.json` > `name` | `"my-study-buddy"` |
+| App name on the phone | `app.json` > `expo.name` | Currently `Expense Tracker` |
+| Slug | `app.json` > `expo.slug` | Currently `offline-ai-starter` |
+| URL scheme | `app.json` > `expo.scheme` | Currently `offline-ai-starter` |
+| **Android package ID** | `app.json` > `expo.android.package` | Replace `com.example.offlineaistarter` with a permanent, unique reverse-domain ID |
+| npm name | `package.json` > `name` | Internal package name; change only if needed |
 | App icon/splash | `assets/images/` | Replace `icon.png`, `android-icon-*.png`, `splash-icon.png` (keep sizes) |
 | Colours | `src/theme.ts` | Change `tint` and the other colours for light/dark |
 | Title in README | `../README.md` | Your project name and description |
@@ -258,19 +245,10 @@ eas init
 
 ## 6. Run the app
 
-### 6.1 In the browser (fastest, for UI work)
+### 6.1 Supported target
 
-```bash
-npx expo start --web
-```
-
-Open <http://localhost:8081>. Changes reload automatically.
-
-In the browser:
-- Onboarding, Home, Settings and **Gemini** chat work.
-- **Local AI does not work** (it needs the phone's hardware). Chat settings
-  shows a note instead.
-- The Gemini key is only kept for the current browser tab.
+This project targets Android only. The native AI and SQLite modules require
+the app's development build; Expo Go and browser runs are not supported.
 
 ### 6.2 On your Android phone (with Expo, no Android Studio)
 
@@ -411,10 +389,11 @@ details. Clear the chat in Chat settings to start fresh.
 Edit the `SLIDES` array in `src/app/onboarding.tsx` (icon, title, body).
 Icons are Ionicons names: <https://icons.expo.fyi>.
 
-To see onboarding again: **Home** > gear > **Reset all data**.
-This deletes everything (chat, settings, API key, local model).
+To see onboarding again: **Settings** > **Reset all data**. This deletes
+chats, transactions, emergency-fund data, upcoming events, settings, the API
+key, and the downloaded local model.
 
-### 8.2 Add a screen and a Home button
+### 8.2 Add a screen
 
 1. Create a file, e.g. `src/app/notes.tsx`:
 
@@ -432,11 +411,9 @@ This deletes everything (chat, settings, API key, local model).
 
    The file name is the route: `notes.tsx` → `/notes`.
 
-2. In `src/app/(tabs)/index.tsx`, replace one empty item in `ACTIONS`:
-
-   ```tsx
-   { label: 'Notes', icon: 'document-text-outline', onPress: (router) => router.push('/notes') },
-   ```
+2. Link it from the relevant screen with Expo Router, for example
+   `router.push('/notes')`. Main tabs are declared in
+   `src/app/(tabs)/_layout.tsx`.
 
 ### 8.3 Change how the AI behaves
 
@@ -497,13 +474,11 @@ cloud routing, and native hardware notes.
 
 - [ ] Node.js 20.19+ installed (`node -v`)
 - [ ] Git installed
-- [ ] Copied the boilerplate into a **new folder** and ran `git init`
-- [ ] `npm install` finished without errors
+- [ ] Opened the project folder and installed dependencies
 - [ ] Renamed `name`, `slug`, `scheme` and **`android.package`** in `app.json`
 - [ ] Renamed `name` in `package.json`
 - [ ] Replaced icons/splash in `assets/images/` (optional but recommended)
-- [ ] Updated the root [README](../README.md) and `LICENSE`
-- [ ] App runs in the browser: `npx expo start --web`
+- [ ] Installed and tested the Android development build
 - [ ] Created a Gemini API key and tested a chat
 - [ ] (Android) Expo account created, `eas-cli` installed, `eas login` done
 - [ ] (Android) `eas init` run in your project folder
@@ -512,7 +487,6 @@ cloud routing, and native hardware notes.
 - [ ] (Android) `npx expo start` running and the phone app connects
 - [ ] (Local AI) Model downloaded and loaded on a real phone
 - [ ] Checked no API key is written anywhere in the code
-- [ ] First commit: `git add . && git commit -m "Start from Offline AI Starter"`
 
 ---
 
@@ -521,7 +495,6 @@ cloud routing, and native hardware notes.
 | Command | What it does |
 | --- | --- |
 | `npm install` | Install packages |
-| `npx expo start --web` | Run in the browser |
 | `npx expo start` | Start the dev server (app already installed on phone) |
 | `eas login` | Log in to your Expo account |
 | `eas init` | Link the project to your Expo account |
@@ -556,10 +529,8 @@ project.
 | Port 8081 already in use | Close the other `expo start` terminal, or run `npx expo start --port 8082`. |
 | Chat controls are hidden by the keyboard | Update `softwareKeyboardLayoutMode` in `app.json`; the chat uses keyboard avoidance and keeps its composer in one row. Rebuild the Android development client after changing native config. |
 | App opens in Expo Go and crashes | Expo Go isn't supported. Use your development build (section 6.2). |
-| Blank screen / stale code in browser | Stop the server and run `npx expo start --web --clear`. |
 | "Invalid API key" | Re-paste the key in Chat settings; set model to **Auto**. |
 | "Rate limit reached" | Free-tier limit; wait a minute and retry. |
-| Local AI unavailable in browser | Expected. Local AI only works in the Android app. |
 | Local model won't load / app closes | Check the total-RAM compatibility status, confirm the model finished downloading and retry with **Auto** or **CPU**. A runtime memory allocation can still fail. |
 | Local AI on emulator fails | Emulators on x86 PCs aren't supported. Use a real phone. |
 | Want a clean start | Home > gear > **Reset all data**. |

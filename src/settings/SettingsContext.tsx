@@ -17,6 +17,7 @@ import {
   saveSetting,
   type Settings,
 } from './storage';
+import { translate } from './language';
 
 interface SettingsContextValue {
   settings: Settings;
@@ -148,4 +149,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
 export function useSettings() {
   return useContext(SettingsContext);
+}
+
+export function useTranslate() {
+  const { settings } = useSettings();
+  return useCallback(
+    (text: string) => translate(settings.language, text),
+    [settings.language]
+  );
 }

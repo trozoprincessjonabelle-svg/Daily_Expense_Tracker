@@ -3,7 +3,8 @@
 The Android app runs Google's Gemma 4 E2B instruction model with
 `react-native-litert-lm`. After the model file is downloaded and loaded, prompt
 and attachment inference runs on the device without a Gemini key or network.
-The browser build does not include the Android inference engine.
+The project targets Android only; local inference requires the native Android
+development build.
 
 ## Requirements and RAM behavior
 
@@ -76,7 +77,7 @@ encoder model has to initialize.
 
 | Symptom | Check |
 | --- | --- |
-| Local AI is unavailable in the browser | Run the Android development build. |
+| Local AI is unavailable | Install and open the Android development build, then download and load the model. |
 | Download is incomplete | Resume it from Chat settings; model files are stored in app-private storage. |
 | Model load fails | Check total-RAM compatibility and free storage, then retry Auto or CPU. Runtime memory can differ by Android version and other running apps. |
 | Image or voice control is missing | Confirm **Local AI** is selected and update the development build so the Expo native module is installed. |

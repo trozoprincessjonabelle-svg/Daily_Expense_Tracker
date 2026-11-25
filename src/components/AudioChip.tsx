@@ -2,7 +2,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import { SmoothPressable } from '@/components/SmoothPressable';
 import { useTheme } from '../theme';
 
@@ -39,7 +40,7 @@ export function AudioChip({ uri, isUser }: { uri: string; isUser: boolean }) {
           status.playing ? 'Pause voice message' : 'Play voice message'
         }
         hitSlop={10}
-        style={[styles.button, { backgroundColor: isUser ? '#004A99' : theme.buttonPrimary }]}
+        style={[styles.button, { backgroundColor: isUser ? theme.userBubble : theme.buttonPrimary }]}
       >
         <Ionicons
           name={status.playing ? 'pause' : 'play'}

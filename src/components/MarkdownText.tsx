@@ -1,7 +1,8 @@
 // Minimal Markdown renderer for chat output. Dependency-free on purpose —
 // students can swap this for react-native-markdown-display later.
 import React from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { LocalizedText as Text } from '@/components/LocalizedText';
 import type { Theme } from '../theme';
 
 const MONO = Platform.select({ android: 'monospace', default: 'monospace' });

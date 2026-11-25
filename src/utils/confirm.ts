@@ -6,6 +6,7 @@ export interface Confirmation {
   onConfirm: () => void | Promise<void>;
   cancelable: boolean;
   destructive: boolean;
+  requiredText?: string;
 }
 
 let nextId = 0;
@@ -27,6 +28,26 @@ export function dismissConfirmation(id: number) {
 /** Every app confirmation uses the same accessible, blurred popup. */
 export function confirmAction(title: string, message: string, confirmLabel: string, onConfirm: () => void | Promise<void>): void {
   queue.push({ id: ++nextId, title, message, confirmLabel, onConfirm, cancelable: true, destructive: /^(clear|delete|reset)$/i.test(confirmLabel) });
+  notify();
+}
+
+export function confirmActionWithText(
+  title: string,
+  message: string,
+  confirmLabel: string,
+  requiredText: string,
+  onConfirm: () => void | Promise<void>
+): void {
+  queue.push({
+    id: ++nextId,
+    title,
+    message,
+    confirmLabel,
+    onConfirm,
+    cancelable: true,
+    destructive: true,
+    requiredText,
+  });
   notify();
 }
 
