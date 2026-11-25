@@ -7,11 +7,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { LocalizedTextInput as TextInput } from '@/components/LocalizedTextInput';
 import { LocalizedText as Text } from '@/components/LocalizedText';
 import type { UpcomingEvent, UpcomingEventInput } from '@/db/ledger';
-import { formatDate, formatMoney } from '@/ledger/format';
+import { formatMoney } from '@/ledger/format';
 import { useTheme } from '@/theme';
 import { showMessage } from '@/utils/confirm';
 import { Button } from '../Button';
@@ -256,7 +255,6 @@ export function UpcomingEventModal({
   const [amount, setAmount] = useState(event?.amount ? String(event.amount) : '');
   const [date, setDate] = useState(event?.event_date ?? localDate());
   const [saving, setSaving] = useState(false);
-  const [showIosDatePicker, setShowIosDatePicker] = useState(false);
   const parsedAmount = amount.trim() ? Number(amount.replace(',', '.')) : 0;
   const trimmedTitle = title.trim();
   const validDate = isValidUpcomingDate(date);
@@ -278,30 +276,6 @@ export function UpcomingEventModal({
     }
   };
 
-  const dateFromKey = (value: string): Date => {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-    if (!match) return new Date();
-    const dateValue = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-    return dateValue;
-  };
-
-  const dateToKey = (value: Date): string =>
-    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-
-  const openDatePicker = () => {
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        value: dateFromKey(date),
-        mode: 'date',
-        onChange: (_event, selectedDate) => {
-          if (selectedDate) setDate(dateToKey(selectedDate));
-        },
-      });
-      return;
-    }
-    setShowIosDatePicker(true);
-  };
-
   return (
     <FeatureModal
       visible={visible}
@@ -311,28 +285,7 @@ export function UpcomingEventModal({
       onClose={onClose}
     >
       <Field label="Cost name" value={title} onChangeText={setTitle} placeholder="e.g. Birthday" />
-      <View style={styles.field}>
-        <Text style={[styles.label, { color: theme.text }]}>Date</Text>
-        <SmoothPressable
-          accessibilityRole="button"
-          accessibilityLabel="Event date"
-          onPress={openDatePicker}
-          style={[styles.input, styles.datePickerInput, { backgroundColor: theme.card, borderColor: theme.border }]}
-        >
-          <Text style={{ color: theme.text }}>{formatDate(date)}</Text>
-          <Ionicons name="calendar-outline" size={18} color={theme.warning} />
-        </SmoothPressable>
-        {showIosDatePicker && (
-          <DateTimePicker
-            value={dateFromKey(date)}
-            mode="date"
-            display="inline"
-            onChange={(_event, selectedDate) => {
-              if (selectedDate) setDate(dateToKey(selectedDate));
-            }}
-          />
-        )}
-      </View>
+      <Field label="Date" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
       <Field label="Estimated cost (PHP)" value={amount} onChangeText={setAmount} placeholder="Optional" keyboardType="decimal-pad" />
       <Text style={[styles.helperText, { color: theme.textSecondary }]}>
         You can save the estimate even if it is higher than your current wallet balance.
@@ -362,7 +315,6 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { fontSize: 13, fontWeight: '700' },
   input: { minHeight: 48, borderWidth: StyleSheet.hairlineWidth, borderRadius: 13, paddingHorizontal: 13, fontSize: 15 },
-  datePickerInput: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   helperText: { fontSize: 12, lineHeight: 17 },
   validation: { fontSize: 12 },
   actions: { flexDirection: 'row', gap: 9, marginTop: 4 },
